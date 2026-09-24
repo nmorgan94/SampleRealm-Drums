@@ -65,7 +65,7 @@ bool AudioPluginAudioProcessor::isMidiEffect() const
 
 double AudioPluginAudioProcessor::getTailLengthSeconds() const
 {
-    const auto settings = engineParams.voiceSettings (EngineParams::auditionNote, 1.0f, 0.0f);
+    const auto settings = engineParams.voiceSettings (EngineParams::auditionNote, {});
     const auto voice    = KickVoice::getDurationSeconds (envelopeModel.getDuration (KickEnvelopes::amp), settings);
     const auto latency  = getSampleRate() > 0.0 ? getLatencySamples() / getSampleRate() : 0.0;
 
@@ -126,18 +126,18 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 }
 
 //==============================================================================
-void AudioPluginAudioProcessor::startNote (int midiNote, float velocity) noexcept
+void AudioPluginAudioProcessor::startNote (int midiNote) noexcept
 {
     const auto& pitch = envelopes[KickEnvelopes::pitch];
     const auto& amp   = envelopes[KickEnvelopes::amp];
-    const auto tailHz = envelopeModel.toDisplay (KickEnvelopes::pitch, pitch.getFinalValue());
 
     fadeOutAll();
 
     const auto idle = std::find_if (voices.begin(), voices.end(), [] (const KickVoice& v) { return ! v.isActive(); });
     auto& voice = idle != voices.end() ? *idle : voices[nextStolenVoice++ % voices.size()];
-    voice.start (pitch, amp, engineParams.voiceSettings (midiNote, velocity, tailHz));
+    voice.start (pitch, amp, engineParams.voiceSettings (midiNote, pitch));
 
+    lastNote = midiNote;
     ++hitCount;
 }
 
@@ -171,7 +171,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::FloatVectorOperations::clear (mono, numSamples);
 
     if (auditionPending.exchange (false))
-        startNote (EngineParams::auditionNote, 1.0f);
+        startNote (lastNote.load());
 
     // Split the block at each note-on so hits are sample-accurate
     int position = 0;
@@ -188,7 +188,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         position = eventPosition;
 
         if (message.isNoteOn())
-            startNote (message.getNoteNumber(), message.getFloatVelocity());
+            startNote (message.getNoteNumber());
         else
             fadeOutAll();
     }

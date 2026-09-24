@@ -18,7 +18,6 @@ namespace Parameters
     inline const juce::ParameterID keyTrackId    { "keyTrack",    versionHint };
     inline const juce::ParameterID lengthId      { "length",      versionHint };
     inline const juce::ParameterID pitchDepthId  { "pitchDepth",  versionHint };
-    inline const juce::ParameterID velSensId     { "velSens",     versionHint };
 
     // Sub
     inline const juce::ParameterID subLevelId     { "subLevel",     versionHint };

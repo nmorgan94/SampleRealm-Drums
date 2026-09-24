@@ -113,6 +113,21 @@ namespace srd
         return getUserFile (name).existsAsFile();
     }
 
+    /** User presets can't share a factory preset's name, so the two never look alike in a list. */
+    juce::Result PresetManager::checkUserName (const juce::String& trimmedName) const
+    {
+        const auto listedName = juce::File::createLegalFileName (trimmedName);
+
+        if (listedName.isEmpty())
+            return juce::Result::fail ("Enter a preset name.");
+
+        for (const auto& preset : factoryPresets)
+            if (preset.name.equalsIgnoreCase (listedName))
+                return juce::Result::fail ("\"" + preset.name + "\" is a factory preset. Choose another name.");
+
+        return juce::Result::ok();
+    }
+
     //==============================================================================
     bool PresetManager::loadPreset (const Preset& preset)
     {
@@ -177,8 +192,8 @@ namespace srd
     {
         const auto trimmed = name.trim();
 
-        if (trimmed.isEmpty())
-            return juce::Result::fail ("Enter a preset name.");
+        if (const auto check = checkUserName (trimmed); check.failed())
+            return check;
 
         if (const auto created = config.userDirectory.createDirectory(); created.failed())
             return created;
@@ -200,8 +215,8 @@ namespace srd
         if (preset.isFactory || ! preset.file.existsAsFile())
             return juce::Result::fail ("Only user presets can be renamed.");
 
-        if (trimmed.isEmpty())
-            return juce::Result::fail ("Enter a preset name.");
+        if (const auto check = checkUserName (trimmed); check.failed())
+            return check;
 
         const auto target = getUserFile (trimmed);
 

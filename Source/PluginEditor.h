@@ -1,15 +1,20 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "engine/KickRenderer.h"
+#include "ui/Controls.h"
 #include "ui/CustomLookAndFeel.h"
+#include "ui/EnvelopeEditor.h"
+#include "ui/Panel.h"
+#include "ui/PresetBar.h"
+#include "ui/PromptOverlay.h"
+#include "ui/TriggerPad.h"
+#include "ui/Waveform.h"
 
 //==============================================================================
-/**
- * Interim editor: generic parameter controls, a Trigger button and preset stepping.
- * Replaced by the custom UI (envelope editor, knob panels, preset bar) in the next step.
- */
 class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
-                                              private juce::Timer
+                                              private juce::Timer,
+                                              private juce::AudioProcessorListener
 {
 public:
     explicit AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor&);
@@ -23,18 +28,69 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     AudioPluginAudioProcessor& processorRef;
+    juce::AudioProcessorValueTreeState& apvts;
 
     CustomLookAndFeel customLookAndFeel;
 
-    juce::TextButton triggerButton { "Trigger" };
-    juce::TextButton previousButton { "<" }, nextButton { ">" };
-    juce::Label presetLabel;
-    juce::GenericAudioProcessorEditor genericEditor { processorRef };
+    // Top bar
+    srd::PromptOverlay prompt;
+    srd::PresetBar presetBar { processorRef.getPresetManager(), prompt };
+    juce::String tailNote, tailHz;
+    juce::Rectangle<int> titleArea, readoutArea;
 
-    juce::uint32 lastPresetChange = 0;
+    // Envelopes, drawn over a preview of one hit
+    juce::TextButton pitchTab { "Pitch" }, ampTab { "Amp" };
+    srd::EnvelopeEditor envelopeEditor { processorRef.getEnvelopeModel() };
+    srd::Waveform waveform;
+    KickRenderer renderer;
+    std::atomic<bool> parametersChanged { true };
+    juce::uint32 renderedEnvelopeVersion = 0;
+    int renderedNote = -1;
+    float renderedViewSeconds = 0.0f;
+
+    // Global
+    srd::Panel globalPanel { "Global" };
+    srd::Knob tune       { apvts, Parameters::tuneId };
+    srd::Toggle keyTrack { apvts, Parameters::keyTrackId };
+    srd::Knob length     { apvts, Parameters::lengthId };
+    srd::Knob pitchDepth { apvts, Parameters::pitchDepthId };
+    srd::TriggerPad triggerPad { "Hit" };
+    juce::uint32 lastHitCount = 0;
+
+    // Sound
+    srd::Panel subPanel { "Sub" };
+    srd::Knob subLevel     { apvts, Parameters::subLevelId, "Level" };
+    srd::Knob subHarmonics { apvts, Parameters::subHarmonicsId };
+    srd::Knob subPhase     { apvts, Parameters::subPhaseId };
+
+    srd::Panel clickPanel { "Click" };
+    srd::ChoiceBox clickType { apvts, Parameters::clickTypeId };
+    srd::Knob clickLevel { apvts, Parameters::clickLevelId, "Level" };
+    srd::Knob clickTone  { apvts, Parameters::clickToneId,  "Tone" };
+    srd::Knob clickDecay { apvts, Parameters::clickDecayId, "Decay" };
+    srd::Knob clickPitch { apvts, Parameters::clickPitchId, "Pitch" };
+
+    srd::Panel drivePanel { "Drive" };
+    srd::ChoiceBox driveType { apvts, Parameters::driveTypeId };
+    srd::Knob driveAmount { apvts, Parameters::driveAmountId, "Amount" };
+    srd::Knob driveMix    { apvts, Parameters::driveMixId,    "Mix" };
+
+    srd::Panel eqPanel { "EQ" };
+    srd::Knob eqLow     { apvts, Parameters::eqLowGainId };
+    srd::Knob eqMidFreq { apvts, Parameters::eqMidFreqId };
+    srd::Knob eqMid     { apvts, Parameters::eqMidGainId };
+    srd::Knob eqHigh    { apvts, Parameters::eqHighGainId };
+
+    srd::Panel outputPanel { "Output" };
+    srd::Knob clip   { apvts, Parameters::clipAmountId };
+    srd::Knob output { apvts, Parameters::outputGainId, "Gain" };
+
+    void showEnvelope (std::size_t env);
+    void updatePreview();
 
     void timerCallback() override;
-    void updatePresetLabel();
+    void audioProcessorParameterChanged (juce::AudioProcessor*, int, float) override   { parametersChanged = true; }
+    void audioProcessorChanged (juce::AudioProcessor*, const ChangeDetails&) override {}
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };

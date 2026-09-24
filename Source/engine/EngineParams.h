@@ -12,7 +12,7 @@
 class EngineParams
 {
 public:
-    /** The note the Trigger pad plays: F1, a common DnB kick key. */
+    /** The note the Hit pad plays until MIDI arrives. */
     static constexpr int auditionNote = 29;
 
     explicit EngineParams (juce::AudioProcessorValueTreeState& apvts)
@@ -21,7 +21,6 @@ public:
           keyTrack     (get (apvts, Parameters::keyTrackId)),
           length       (get (apvts, Parameters::lengthId)),
           pitchDepth   (get (apvts, Parameters::pitchDepthId)),
-          velSens      (get (apvts, Parameters::velSensId)),
           subLevel     (get (apvts, Parameters::subLevelId)),
           subHarmonics (get (apvts, Parameters::subHarmonicsId)),
           subPhase     (get (apvts, Parameters::subPhaseId)),
@@ -41,20 +40,19 @@ public:
     {
     }
 
-    KickVoice::Settings voiceSettings (int midiNote, float velocity, float envelopeTailHz) const noexcept
+    /** pitch is the envelope the hit will play (log2 Hz), which Key Track tunes against. */
+    KickVoice::Settings voiceSettings (int midiNote, const srd::EnvelopeData& pitch) const noexcept
     {
-        const auto velocityGain = 1.0f - velSens.load() * 0.01f * (1.0f - juce::jlimit (0.0f, 1.0f, velocity));
-
         KickVoice::Settings s;
-        s.frequencyRatio = frequencyRatio (midiNote, envelopeTailHz);
+        s.frequencyRatio = frequencyRatio (midiNote, KickVoice::getTailHz (pitch));
         s.lengthScale    = length.load();
         s.pitchDepth     = pitchDepth.load() * 0.01f;
         s.startPhase     = subPhase.load() / 360.0f;
         s.harmonics      = subHarmonics.load() * 0.01f;
-        s.subGain        = decibelsToGain (subLevel.load()) * velocityGain;
+        s.subGain        = decibelsToGain (subLevel.load());
 
         s.click.type    = srd::ClickGenerator::typeFromIndex (juce::roundToInt (clickType.load()));
-        s.click.gain    = decibelsToGain (clickLevel.load()) * velocityGain;
+        s.click.gain    = decibelsToGain (clickLevel.load());
         s.click.toneHz  = clickTone.load();
         s.click.decayMs = clickDecay.load() * length.load();
         s.click.pitchHz = clickPitch.load() * s.frequencyRatio;
@@ -77,7 +75,7 @@ public:
     }
 
 private:
-    const std::atomic<float>& outputGain, & tune, & keyTrack, & length, & pitchDepth, & velSens,
+    const std::atomic<float>& outputGain, & tune, & keyTrack, & length, & pitchDepth,
                             & subLevel, & subHarmonics, & subPhase,
                             & clickType, & clickLevel, & clickTone, & clickDecay, & clickPitch,
                             & driveType, & driveAmount, & driveMix,

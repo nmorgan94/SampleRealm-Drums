@@ -20,7 +20,6 @@ Every sound is synthesised, with no samples, so kicks can be tuned to the track'
 ### Tuning
 - Key Track, which lands the tail on the played MIDI note while the whole sweep follows
 - Tune, ±24 semitones with fine steps
-- Velocity sensitivity
 
 ### Click
 - Synthesised transients in three modes: Noise (band-passed), Sweep (a falling sine) and Impulse (a single-cycle tick)

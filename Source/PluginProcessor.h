@@ -55,8 +55,11 @@ public:
     srd::PresetManager& getPresetManager()              { return presetManager; }
     EngineParams& getEngineParams()                     { return engineParams; }
 
-    /** Plays the audition note on the next audio block. */
+    /** Replays the last note played on the next audio block. */
     void triggerAudition() noexcept                     { auditionPending = true; }
+
+    /** The last note played, so the UI can show where its tail lands with Key Track on. */
+    int getLastNote() const noexcept                    { return lastNote.load(); }
 
     /** Increments on every hit, so the UI can flash without listening to MIDI. */
     juce::uint32 getHitCount() const noexcept           { return hitCount.load(); }
@@ -78,10 +81,11 @@ private:
 
     std::atomic<bool> auditionPending { false };
     std::atomic<juce::uint32> hitCount { 0 };
+    std::atomic<int> lastNote { EngineParams::auditionNote };
 
     static srd::PresetManager::Config createPresetConfig();
 
-    void startNote (int midiNote, float velocity) noexcept;
+    void startNote (int midiNote) noexcept;
     void fadeOutAll() noexcept;
     void renderVoices (float* output, int startSample, int endSample) noexcept;
 

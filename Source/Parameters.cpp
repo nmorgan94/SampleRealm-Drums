@@ -33,8 +33,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createLayout()
                 std::make_unique<Float> (tuneId, "Tune", Range (-24.0f, 24.0f, 0.01f), 0.0f, withSuffix (" st", 2)),
                 std::make_unique<juce::AudioParameterChoice> (keyTrackId, "Key Track", juce::StringArray { "Off", "On" }, 0),
                 std::make_unique<Float> (lengthId, "Length", skewedRange (0.25f, 4.0f, 1.0f, 0.01f), 1.0f, withSuffix ("x", 2)),
-                percentParam (pitchDepthId, "Pitch Depth", 200.0f, 100.0f),
-                percentParam (velSensId, "Velocity", 100.0f, 50.0f));
+                percentParam (pitchDepthId, "Pitch Depth", 200.0f, 100.0f));
 
     // Sub
     layout.add (gainParam (subLevelId, "Sub Level", minusInfinityDb, 6.0f, 0.0f),

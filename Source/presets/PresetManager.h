@@ -94,6 +94,7 @@ namespace srd
         std::atomic<juce::uint32> changeCounter { 0 };
 
         juce::File getUserFile (const juce::String& name) const;
+        juce::Result checkUserName (const juce::String& trimmedName) const;
         void scanUserPresets() const;
         std::unique_ptr<juce::XmlElement> createPresetXml (const juce::String& name, const juce::String& category) const;
         void setCurrent (const CurrentPreset&, bool isModified);

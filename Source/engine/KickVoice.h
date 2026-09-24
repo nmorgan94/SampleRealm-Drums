@@ -21,9 +21,14 @@ public:
         float pitchDepth     = 1.0f;  // scales each pitch node's distance from the tail, in octaves
         float startPhase     = 0.0f;  // cycles, 0..0.25
         float harmonics      = 0.0f;  // 0..1
-        float subGain        = 1.0f;  // linear, velocity already applied
+        float subGain        = 1.0f;  // linear
         srd::ClickGenerator::Settings click;
     };
+
+    static float getTailHz (const srd::EnvelopeData& pitch, float frequencyRatio = 1.0f) noexcept
+    {
+        return pitch.numNodes > 0 ? std::exp2 (pitch.getFinalValue()) * frequencyRatio : 0.0f;
+    }
 
     /** How long a hit with these settings sounds, given the amp envelope's unscaled duration. */
     static float getDurationSeconds (float ampDuration, const Settings& s) noexcept
