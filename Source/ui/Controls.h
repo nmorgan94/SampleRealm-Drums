@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "SegmentedButtons.h"
 
 //==============================================================================
 /**
@@ -80,6 +81,33 @@ namespace srd
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> attachment;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChoiceBox)
+    };
+
+    //==============================================================================
+    /** A row of joined buttons, one per value of a choice parameter. */
+    class ChoiceButtons : public SegmentedButtons
+    {
+    public:
+        /** onChange is called whenever the parameter changes, from here or anywhere else. */
+        ChoiceButtons (juce::AudioProcessorValueTreeState& apvts, const juce::ParameterID& id)
+            : param (detail::getParameter (apvts, id)),
+              attachment (param, [this] (float value) { setSelectedIndex (juce::roundToInt (value), juce::sendNotificationSync); },
+                          apvts.undoManager)
+        {
+            setItems (param.getAllValueStrings());
+            attachment.sendInitialUpdate();
+        }
+
+    private:
+        juce::RangedAudioParameter& param;
+        juce::ParameterAttachment attachment;
+
+        void buttonClicked (int index) override
+        {
+            attachment.setValueAsCompleteGesture (param.convertFrom0to1 (param.getValueForText (param.getAllValueStrings()[index])));
+        }
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChoiceButtons)
     };
 
     //==============================================================================

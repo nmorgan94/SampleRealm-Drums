@@ -65,9 +65,13 @@ bool AudioPluginAudioProcessor::isMidiEffect() const
 
 double AudioPluginAudioProcessor::getTailLengthSeconds() const
 {
-    const auto settings = engineParams.voiceSettings (EngineParams::auditionNote, {});
-    const auto voice    = KickVoice::getDurationSeconds (envelopeModel.getDuration (KickEnvelopes::amp), settings);
-    const auto latency  = getSampleRate() > 0.0 ? getLatencySamples() / getSampleRate() : 0.0;
+    const auto voice = engineParams.getInstrument() == Parameters::Instrument::snare
+        ? SnareVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::snareBody),
+                                          envelopeModel.getDuration (DrumEnvelopes::snareNoise),
+                                          engineParams.snareSettings (0, {}))
+        : KickVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::kickAmp), engineParams.kickSettings (0, {}));
+
+    const auto latency = getSampleRate() > 0.0 ? getLatencySamples() / getSampleRate() : 0.0;
 
     return voice + latency;
 }
@@ -99,8 +103,8 @@ void AudioPluginAudioProcessor::changeProgramName (int, const juce::String&)
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    for (auto& voice : voices)
-        voice.prepare (sampleRate);
+    kickVoices.prepare (sampleRate);
+    snareVoices.prepare (sampleRate);
 
     fxChain.prepare (sampleRate, samplesPerBlock);
     fxChain.setSettings (engineParams.fxSettings());
@@ -111,13 +115,13 @@ void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 
 void AudioPluginAudioProcessor::releaseResources()
 {
-    for (auto& voice : voices)
-        voice.stop();
+    kickVoices.stop();
+    snareVoices.stop();
 }
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    // Output only: the kick is mono, copied to every output channel
+    // Output only: the drum is mono, copied to every output channel
     if (! layouts.getMainInputChannelSet().isDisabled())
         return false;
 
@@ -128,29 +132,34 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 //==============================================================================
 void AudioPluginAudioProcessor::startNote (int midiNote) noexcept
 {
-    const auto& pitch = envelopes[KickEnvelopes::pitch];
-    const auto& amp   = envelopes[KickEnvelopes::amp];
-
     fadeOutAll();
 
-    const auto idle = std::find_if (voices.begin(), voices.end(), [] (const KickVoice& v) { return ! v.isActive(); });
-    auto& voice = idle != voices.end() ? *idle : voices[nextStolenVoice++ % voices.size()];
-    voice.start (pitch, amp, engineParams.voiceSettings (midiNote, pitch));
+    if (playing == Parameters::Instrument::snare)
+    {
+        const auto& pitch = envelopes[DrumEnvelopes::snarePitch];
+        snareVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::snareBody], envelopes[DrumEnvelopes::snareNoise],
+                                          engineParams.snareSettings (midiNote, pitch));
+    }
+    else
+    {
+        const auto& pitch = envelopes[DrumEnvelopes::kickPitch];
+        kickVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::kickAmp], engineParams.kickSettings (midiNote, pitch));
+    }
 
-    lastNote = midiNote;
+    lastNoteOf (playing) = midiNote;
     ++hitCount;
 }
 
 void AudioPluginAudioProcessor::fadeOutAll() noexcept
 {
-    for (auto& voice : voices)
-        voice.fadeOut();
+    kickVoices.fadeOut();
+    snareVoices.fadeOut();
 }
 
 void AudioPluginAudioProcessor::renderVoices (float* output, int startSample, int endSample) noexcept
 {
-    for (auto& voice : voices)
-        voice.render (output + startSample, endSample - startSample);
+    kickVoices.render (output + startSample, endSample - startSample);
+    snareVoices.render (output + startSample, endSample - startSample);
 }
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -166,12 +175,19 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     envelopeModel.tryGetLatest (envelopes, envelopeVersion);
     fxChain.setSettings (engineParams.fxSettings());
 
-    // The kick is mono: render into the first channel, then copy it to the rest
+    // A new instrument fades out the old one's hits
+    if (const auto instrument = engineParams.getInstrument(); instrument != playing)
+    {
+        fadeOutAll();
+        playing = instrument;
+    }
+
+    // The drum is mono: render into the first channel, then copy it to the rest
     auto* mono = buffer.getWritePointer (0);
     juce::FloatVectorOperations::clear (mono, numSamples);
 
     if (auditionPending.exchange (false))
-        startNote (lastNote.load());
+        startNote (lastNoteOf (playing).load());
 
     // Split the block at each note-on so hits are sample-accurate
     int position = 0;

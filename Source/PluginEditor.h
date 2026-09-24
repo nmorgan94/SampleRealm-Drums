@@ -1,7 +1,7 @@
 #pragma once
 
 #include "PluginProcessor.h"
-#include "engine/KickRenderer.h"
+#include "engine/PreviewRenderer.h"
 #include "ui/Controls.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/EnvelopeEditor.h"
@@ -34,15 +34,16 @@ private:
 
     // Top bar
     srd::PromptOverlay prompt;
+    srd::ChoiceButtons instrumentSwitch { apvts, Parameters::instrumentId };
     srd::PresetBar presetBar { processorRef.getPresetManager(), prompt };
     juce::String tailNote, tailHz;
     juce::Rectangle<int> titleArea, readoutArea;
 
-    // Envelopes, drawn over a preview of one hit
-    juce::TextButton pitchTab { "Pitch" }, ampTab { "Amp" };
+    // Envelopes, drawn over a preview of one hit. The tabs are relabelled per instrument
+    srd::SegmentedButtons envelopeTabs;
     srd::EnvelopeEditor envelopeEditor { processorRef.getEnvelopeModel() };
     srd::Waveform waveform;
-    KickRenderer renderer;
+    PreviewRenderer renderer;
     std::atomic<bool> parametersChanged { true };
     juce::uint32 renderedEnvelopeVersion = 0;
     int renderedNote = -1;
@@ -57,7 +58,7 @@ private:
     srd::TriggerPad triggerPad { "Hit" };
     juce::uint32 lastHitCount = 0;
 
-    // Sound
+    // Kick
     srd::Panel subPanel { "Sub" };
     srd::Knob subLevel     { apvts, Parameters::subLevelId, "Level" };
     srd::Knob subHarmonics { apvts, Parameters::subHarmonicsId };
@@ -70,6 +71,24 @@ private:
     srd::Knob clickDecay { apvts, Parameters::clickDecayId, "Decay" };
     srd::Knob clickPitch { apvts, Parameters::clickPitchId, "Pitch" };
 
+    // Snare
+    srd::Panel bodyPanel { "Body" };
+    srd::Knob bodyLevel     { apvts, Parameters::snareBodyLevelId,     "Level" };
+    srd::Knob bodyHarmonics { apvts, Parameters::snareBodyHarmonicsId, "Harmonics" };
+
+    srd::Panel noisePanel { "Noise" };
+    srd::Knob noiseLevel    { apvts, Parameters::snareNoiseLevelId,   "Level" };
+    srd::Knob noiseLowCut   { apvts, Parameters::snareNoiseLowCutId,  "Low Cut" };
+    srd::Knob noiseHighCut  { apvts, Parameters::snareNoiseHighCutId, "High Cut" };
+
+    srd::Panel snapPanel { "Snap" };
+    srd::ChoiceBox snapType { apvts, Parameters::snareSnapTypeId };
+    srd::Knob snapLevel { apvts, Parameters::snareSnapLevelId, "Level" };
+    srd::Knob snapTone  { apvts, Parameters::snareSnapToneId,  "Tone" };
+    srd::Knob snapDecay { apvts, Parameters::snareSnapDecayId, "Decay" };
+    srd::Knob snapPitch { apvts, Parameters::snareSnapPitchId, "Pitch" };
+
+    // Shared
     srd::Panel drivePanel { "Drive" };
     srd::ChoiceBox driveType { apvts, Parameters::driveTypeId };
     srd::Knob driveAmount { apvts, Parameters::driveAmountId, "Amount" };
@@ -85,7 +104,11 @@ private:
     srd::Knob clip   { apvts, Parameters::clipAmountId };
     srd::Knob output { apvts, Parameters::outputGainId, "Gain" };
 
+    Parameters::Instrument getInstrument() const;
+    void showInstrument();
     void showEnvelope (std::size_t env);
+    juce::Array<srd::Panel*> getSoundPanels (Parameters::Instrument);
+
     void updatePreview();
 
     void timerCallback() override;

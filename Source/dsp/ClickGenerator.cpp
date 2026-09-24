@@ -34,6 +34,7 @@ namespace srd
 
         filter.reset();
         filter.setCutoffFrequency (settings.toneHz);
+        random.setSeed (1); // the same noise every hit
 
         active = settings.gain > 0.0f;
     }

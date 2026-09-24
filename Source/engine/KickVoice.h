@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../dsp/BreakpointEnvelope.h"
 #include "../dsp/ClickGenerator.h"
-#include "../dsp/HarmonicOscillator.h"
+#include "../dsp/EnvelopedOscillator.h"
 
 //==============================================================================
 /**
@@ -16,24 +15,14 @@ public:
 
     struct Settings
     {
-        float frequencyRatio = 1.0f;  // scales the whole pitch envelope (tuning / key tracking)
-        float lengthScale    = 1.0f;  // stretches both envelopes in time
-        float pitchDepth     = 1.0f;  // scales each pitch node's distance from the tail, in octaves
-        float startPhase     = 0.0f;  // cycles, 0..0.25
-        float harmonics      = 0.0f;  // 0..1
-        float subGain        = 1.0f;  // linear
+        srd::EnvelopedOscillator::Settings sub;
         srd::ClickGenerator::Settings click;
     };
-
-    static float getTailHz (const srd::EnvelopeData& pitch, float frequencyRatio = 1.0f) noexcept
-    {
-        return pitch.numNodes > 0 ? std::exp2 (pitch.getFinalValue()) * frequencyRatio : 0.0f;
-    }
 
     /** How long a hit with these settings sounds, given the amp envelope's unscaled duration. */
     static float getDurationSeconds (float ampDuration, const Settings& s) noexcept
     {
-        return std::max (ampDuration * s.lengthScale + fadeSeconds, srd::ClickGenerator::getDurationSeconds (s.click));
+        return std::max (ampDuration * s.sub.lengthScale + fadeSeconds, srd::ClickGenerator::getDurationSeconds (s.click));
     }
 
     void prepare (double sampleRate);
@@ -45,22 +34,13 @@ public:
     void fadeOut() noexcept;
 
     void stop() noexcept;
-    bool isActive() const noexcept     { return subActive || click.isActive(); }
+    bool isActive() const noexcept     { return sub.isActive() || click.isActive(); }
 
     /** Adds this voice's output into the buffer. */
     void render (float* output, int numSamples) noexcept;
 
 private:
-    srd::EnvelopeData pitchEnv, ampEnv;
-    srd::EnvelopeCursor pitchCursor, ampCursor;
-    srd::HarmonicOscillator oscillator;
+    srd::EnvelopedOscillator sub;
     srd::ClickGenerator click;
-
-    Settings settings;
-    double sampleRate = 44100.0;
-    juce::int64 sampleIndex = 0;
-    bool subActive = false;
-
-    // Retrigger fade-out, and the sub's release after the last amp node
-    juce::SmoothedValue<float> fade { 1.0f }, release { 1.0f };
+    juce::SmoothedValue<float> fade { 1.0f }; // retrigger fade-out
 };

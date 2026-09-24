@@ -3,10 +3,10 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters.h"
 #include "dsp/EnvelopeModel.h"
+#include "dsp/VoicePool.h"
+#include "engine/DrumEnvelopes.h"
 #include "engine/EngineParams.h"
 #include "engine/FxChain.h"
-#include "engine/KickEnvelopes.h"
-#include "engine/KickVoice.h"
 #include "presets/PresetManager.h"
 
 //==============================================================================
@@ -58,8 +58,11 @@ public:
     /** Replays the last note played on the next audio block. */
     void triggerAudition() noexcept                     { auditionPending = true; }
 
-    /** The last note played, so the UI can show where its tail lands with Key Track on. */
-    int getLastNote() const noexcept                    { return lastNote.load(); }
+    /** The current instrument's last note, so the UI can show where its tail lands with Key Track on. */
+    int getLastNote() const noexcept
+    {
+        return engineParams.getInstrument() == Parameters::Instrument::snare ? lastSnareNote.load() : lastKickNote.load();
+    }
 
     /** Increments on every hit, so the UI can flash without listening to MIDI. */
     juce::uint32 getHitCount() const noexcept           { return hitCount.load(); }
@@ -68,22 +71,32 @@ private:
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "Parameters",
                                                Parameters::createLayout() };
 
-    srd::EnvelopeModel envelopeModel { apvts, KickEnvelopes::createSpecs() };
+    srd::EnvelopeModel envelopeModel { apvts, DrumEnvelopes::createSpecs() };
     srd::PresetManager presetManager { apvts, createPresetConfig() };
     EngineParams engineParams { apvts };
 
-    std::array<KickVoice, 4> voices;
-    size_t nextStolenVoice = 0;
+    srd::VoicePool<KickVoice, 4> kickVoices;
+    srd::VoicePool<SnareVoice, 4> snareVoices;
     FxChain fxChain;
 
     srd::EnvelopeModel::Snapshot envelopes;
     juce::uint32 envelopeVersion = 0;
 
+    Parameters::Instrument playing = Parameters::Instrument::kick;  // audio thread only
+
     std::atomic<bool> auditionPending { false };
     std::atomic<juce::uint32> hitCount { 0 };
-    std::atomic<int> lastNote { EngineParams::auditionNote };
+
+    // Each instrument keeps its own last note, so switching back and forth keeps both
+    std::atomic<int> lastKickNote  { EngineParams::auditionNote (Parameters::Instrument::kick) };
+    std::atomic<int> lastSnareNote { EngineParams::auditionNote (Parameters::Instrument::snare) };
 
     static srd::PresetManager::Config createPresetConfig();
+
+    std::atomic<int>& lastNoteOf (Parameters::Instrument instrument) noexcept
+    {
+        return instrument == Parameters::Instrument::snare ? lastSnareNote : lastKickNote;
+    }
 
     void startNote (int midiNote) noexcept;
     void fadeOutAll() noexcept;

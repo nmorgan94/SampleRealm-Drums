@@ -141,8 +141,14 @@ void CustomLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
     else if (isMouseOverButton)
         colour = colour.brighter (0.08f);
 
+    // Corners on a connected edge stay square, so joined buttons read as one control
+    const auto left = ! button.isConnectedOnLeft(), right = ! button.isConnectedOnRight();
+    juce::Path shape;
+    shape.addRoundedRectangle (bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(), 4.0f, 4.0f,
+                               left, right, left, right);
+
     g.setColour (colour);
-    g.fillRoundedRectangle (bounds, 4.0f);
+    g.fillPath (shape);
     g.setColour (button.getToggleState() ? colour : Palette::outline);
-    g.drawRoundedRectangle (bounds, 4.0f, 1.0f);
+    g.strokePath (shape, juce::PathStrokeType (1.0f));
 }

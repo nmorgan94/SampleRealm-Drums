@@ -39,6 +39,53 @@ namespace srd
 
         int getNumControls() const noexcept     { return controls.size(); }
 
+        /** Room for the title and the header component side by side. */
+        int getMinimumWidth() const
+        {
+            return juce::roundToInt (juce::GlyphArrangement::getStringWidth (font, title.toUpperCase())) + headerWidth + 32;
+        }
+
+        /** Lays panels out left to right, as wide as their number of controls, except that
+            none gets narrower than its minimum. The last panel takes what rounding leaves. */
+        static void layOutRow (const juce::Array<Panel*>& panels, juce::Rectangle<int> area, int gap)
+        {
+            // Panels that would be squeezed get their minimum; the rest share what's left
+            juce::Array<Panel*> atMinimum;
+            int controlWidth = 0;
+
+            for (bool changed = true; changed;)
+            {
+                int spare = area.getWidth() - gap * (panels.size() - 1), numControls = 0;
+
+                for (auto* panel : panels)
+                {
+                    if (atMinimum.contains (panel))
+                        spare -= panel->getMinimumWidth();
+                    else
+                        numControls += panel->getNumControls();
+                }
+
+                controlWidth = spare / juce::jmax (1, numControls);
+                changed = false;
+
+                for (auto* panel : panels)
+                {
+                    if (! atMinimum.contains (panel) && controlWidth * panel->getNumControls() < panel->getMinimumWidth())
+                    {
+                        atMinimum.add (panel);
+                        changed = true;
+                    }
+                }
+            }
+
+            for (auto* panel : panels)
+            {
+                const auto width = atMinimum.contains (panel) ? panel->getMinimumWidth() : controlWidth * panel->getNumControls();
+                panel->setBounds (panel == panels.getLast() ? area : area.removeFromLeft (width));
+                area.removeFromLeft (gap);
+            }
+        }
+
         void paint (juce::Graphics& g) override
         {
             const auto bounds = getLocalBounds().toFloat().reduced (0.5f);

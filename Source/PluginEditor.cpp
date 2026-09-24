@@ -10,6 +10,24 @@ namespace
 
     using Palette = CustomLookAndFeel::Palette;
 
+    struct EnvelopeTab
+    {
+        const char* name;
+        std::size_t envelope;
+    };
+
+    const juce::Array<EnvelopeTab> kickTabs  { EnvelopeTab { "Pitch", DrumEnvelopes::kickPitch },
+                                               EnvelopeTab { "Amp",   DrumEnvelopes::kickAmp } };
+
+    const juce::Array<EnvelopeTab> snareTabs { EnvelopeTab { "Pitch", DrumEnvelopes::snarePitch },
+                                               EnvelopeTab { "Body",  DrumEnvelopes::snareBody },
+                                               EnvelopeTab { "Noise", DrumEnvelopes::snareNoise } };
+
+    const juce::Array<EnvelopeTab>& getEnvelopeTabs (Parameters::Instrument instrument)
+    {
+        return instrument == Parameters::Instrument::snare ? snareTabs : kickTabs;
+    }
+
     /** Nearest note, with middle C as C4 (so 43.65 Hz is F1). */
     juce::String noteName (float hz)
     {
@@ -23,19 +41,11 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     : AudioProcessorEditor (&p), processorRef (p), apvts (p.getAPVTS())
 {
     // Top bar
+    addAndMakeVisible (instrumentSwitch);
     addAndMakeVisible (presetBar);
 
-    // Envelopes
-    for (auto* tab : { &pitchTab, &ampTab })
-    {
-        tab->setRadioGroupId (1);
-        tab->setClickingTogglesState (true);
-        addAndMakeVisible (tab);
-    }
-
-    ampTab.setColour (juce::TextButton::buttonOnColourId, Palette::accentAlt);
-    pitchTab.onClick = [this] { showEnvelope (KickEnvelopes::pitch); };
-    ampTab.onClick   = [this] { showEnvelope (KickEnvelopes::amp); };
+    envelopeTabs.onChange = [this] (int index) { showEnvelope (getEnvelopeTabs (getInstrument())[index].envelope); };
+    addAndMakeVisible (envelopeTabs);
 
     envelopeEditor.setFont (customLookAndFeel.font (11.0f));
     envelopeEditor.paintBackground = [this] (juce::Graphics& g, juce::Rectangle<float> area)
@@ -43,8 +53,6 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
         waveform.draw (g, area, envelopeEditor.getViewSeconds(), Palette::waveform.withAlpha (0.5f));
     };
     addAndMakeVisible (envelopeEditor);
-    pitchTab.setToggleState (true, juce::dontSendNotification);
-    showEnvelope (KickEnvelopes::pitch);
 
     renderer.prepare (previewSampleRate);
 
@@ -64,13 +72,20 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     addPanel (globalPanel, { &tune, &keyTrack, &length, &pitchDepth });
     addPanel (subPanel,    { &subLevel, &subHarmonics, &subPhase });
     addPanel (clickPanel,  { &clickLevel, &clickTone, &clickDecay, &clickPitch });
+    addPanel (bodyPanel,   { &bodyLevel, &bodyHarmonics });
+    addPanel (noisePanel,  { &noiseLevel, &noiseLowCut, &noiseHighCut });
+    addPanel (snapPanel,   { &snapLevel, &snapTone, &snapDecay, &snapPitch });
     addPanel (drivePanel,  { &driveAmount, &driveMix });
     addPanel (eqPanel,     { &eqLow, &eqMidFreq, &eqMid, &eqHigh });
     addPanel (outputPanel, { &clip, &output });
 
     globalPanel.setColumns (2);
     clickPanel.setHeaderComponent (clickType, 84);
+    snapPanel.setHeaderComponent (snapType, 84);
     drivePanel.setHeaderComponent (driveType, 72);
+
+    instrumentSwitch.onChange = [this] (int) { showInstrument(); };
+    showInstrument();
 
     triggerPad.setFont (customLookAndFeel.font (18.0f, true));
     triggerPad.onTrigger = [this] { processorRef.triggerAudition(); };
@@ -96,12 +111,53 @@ AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 }
 
 //==============================================================================
+Parameters::Instrument AudioPluginAudioProcessorEditor::getInstrument() const
+{
+    return Parameters::instrumentFromIndex (instrumentSwitch.getSelectedIndex());
+}
+
+/** Swaps in the instrument's sound panels and envelope tabs, keeping the same tab where it has one. */
+void AudioPluginAudioProcessorEditor::showInstrument()
+{
+    const auto instrument = getInstrument();
+
+    // Hide every instrument's panels, then show this one's; the shared panels come straight back
+    for (auto each : { Parameters::Instrument::kick, Parameters::Instrument::snare })
+        for (auto* panel : getSoundPanels (each))
+            panel->setVisible (false);
+
+    for (auto* panel : getSoundPanels (instrument))
+        panel->setVisible (true);
+
+    juce::StringArray tabNames;
+
+    for (const auto& tab : getEnvelopeTabs (instrument))
+        tabNames.add (tab.name);
+
+    envelopeTabs.setItems (tabNames);
+    showEnvelope (getEnvelopeTabs (instrument)[envelopeTabs.getSelectedIndex()].envelope);
+
+    parametersChanged = true;
+    resized();
+}
+
+juce::Array<srd::Panel*> AudioPluginAudioProcessorEditor::getSoundPanels (Parameters::Instrument instrument)
+{
+    if (instrument == Parameters::Instrument::snare)
+        return { &bodyPanel, &noisePanel, &snapPanel, &drivePanel, &eqPanel, &outputPanel };
+
+    return { &subPanel, &clickPanel, &drivePanel, &eqPanel, &outputPanel };
+}
+
 void AudioPluginAudioProcessorEditor::showEnvelope (std::size_t env)
 {
-    const auto isPitch = env == KickEnvelopes::pitch;
+    const auto isPitch = processorRef.getEnvelopeModel().getSpec (env).scale == srd::EnvelopeSpec::Scale::logarithmic;
 
     envelopeEditor.setEnvelope (env);
-    envelopeEditor.setColour (srd::EnvelopeEditor::lineColourId, isPitch ? Palette::accent : Palette::accentAlt);
+    // Pitch in the main accent, gain in the other, on both the tab and the curve
+    const auto colour = isPitch ? Palette::accent : Palette::accentAlt;
+    envelopeTabs.setSelectedColour (colour);
+    envelopeEditor.setColour (srd::EnvelopeEditor::lineColourId, colour);
 
     if (isPitch)
     {
@@ -132,28 +188,48 @@ void AudioPluginAudioProcessorEditor::updatePreview()
         && juce::approximatelyEqual (envelopeEditor.getViewSeconds(), renderedViewSeconds))
         return;
 
-    const auto pitch = model.getData (KickEnvelopes::pitch);
-    const auto amp   = model.getData (KickEnvelopes::amp);
-
     const auto& engineParams = processorRef.getEngineParams();
-    const auto settings = engineParams.voiceSettings (note, pitch);
+    const auto fxSettings = engineParams.fxSettings();
 
-    // The time scale sets the view, which sets how much to show
-    envelopeEditor.setTimeScale (settings.lengthScale);
+    envelopeEditor.setTimeScale (engineParams.getLengthScale());
+    renderedViewSeconds = envelopeEditor.getViewSeconds();
+
+    const auto samplesToShow = [this] (float hitSeconds)
+    {
+        return juce::roundToInt (std::min (renderedViewSeconds, hitSeconds) * previewSampleRate);
+    };
+
+    const float* samples = nullptr;
+    int numSamples = 0;
+    float hz = 0.0f;
+
+    if (getInstrument() == Parameters::Instrument::snare)
+    {
+        const auto pitch = model.getData (DrumEnvelopes::snarePitch);
+        const auto body  = model.getData (DrumEnvelopes::snareBody);
+        const auto noise = model.getData (DrumEnvelopes::snareNoise);
+        const auto settings = engineParams.snareSettings (note, pitch);
+
+        numSamples = samplesToShow (SnareVoice::getDurationSeconds (body.getDuration(), noise.getDuration(), settings));
+        samples = renderer.renderSnare (pitch, body, noise, settings, fxSettings, numSamples);
+        hz = srd::EnvelopedOscillator::getTailHz (pitch, settings.body.frequencyRatio);
+    }
+    else
+    {
+        const auto pitch = model.getData (DrumEnvelopes::kickPitch);
+        const auto amp   = model.getData (DrumEnvelopes::kickAmp);
+        const auto settings = engineParams.kickSettings (note, pitch);
+
+        numSamples = samplesToShow (KickVoice::getDurationSeconds (amp.getDuration(), settings));
+        samples = renderer.renderKick (pitch, amp, settings, fxSettings, numSamples);
+        hz = srd::EnvelopedOscillator::getTailHz (pitch, settings.sub.frequencyRatio);
+    }
 
     renderedEnvelopeVersion = version;
     renderedNote = note;
-    renderedViewSeconds = envelopeEditor.getViewSeconds();
 
-    // Only the hit itself is rendered; the rest of the view is silence
-    const auto hitSeconds = KickVoice::getDurationSeconds (amp.getDuration(), settings);
-    const auto numSamples = juce::roundToInt (std::min (renderedViewSeconds, hitSeconds) * previewSampleRate);
-
-    waveform.setSamples (renderer.render (pitch, amp, settings, engineParams.fxSettings(), numSamples),
-                         numSamples, previewSampleRate);
+    waveform.setSamples (samples, numSamples, previewSampleRate);
     envelopeEditor.repaint();
-
-    const auto hz = KickVoice::getTailHz (pitch, settings.frequencyRatio);
 
     if (const auto newNote = noteName (hz), newHz = srd::params::hertzText (hz); newNote != tailNote || newHz != tailHz)
     {
@@ -202,7 +278,7 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText (tailHz, readout, juce::Justification::centredRight);
 
     // Envelope panel
-    const auto envelopeArea = envelopeEditor.getBounds().getUnion (pitchTab.getBounds()).expanded (8).toFloat();
+    const auto envelopeArea = envelopeEditor.getBounds().getUnion (envelopeTabs.getBounds()).expanded (8).toFloat();
     g.setColour (Palette::panel);
     g.fillRoundedRectangle (envelopeArea, 6.0f);
     g.setColour (Palette::outline);
@@ -215,32 +291,17 @@ void AudioPluginAudioProcessorEditor::resized()
 
     // Top bar
     auto top = bounds.removeFromTop (44);
-    titleArea = top.removeFromLeft (220);
+    titleArea = top.removeFromLeft (150);
+    instrumentSwitch.setBounds (top.removeFromLeft (150).withSizeKeepingCentre (150, 30));
     readoutArea = top.removeFromRight (150);
     presetBar.setBounds (top.withSizeKeepingCentre (std::min (top.getWidth() - 24, 460), 30));
 
     bounds.removeFromTop (14);
 
     // Sound panels along the bottom, sized by their number of controls
-    auto bottom = bounds.removeFromBottom (150);
-    bounds.removeFromBottom (12);
-
-    const juce::Array<srd::Panel*> panels { &subPanel, &clickPanel, &drivePanel, &eqPanel, &outputPanel };
     constexpr int gap = 10;
-
-    int numControls = 0;
-
-    for (auto* panel : panels)
-        numControls += panel->getNumControls();
-
-    const auto controlWidth = (bottom.getWidth() - gap * (panels.size() - 1)) / numControls;
-
-    for (auto* panel : panels)
-    {
-        // The last panel takes whatever the rounding leaves
-        panel->setBounds (panel == panels.getLast() ? bottom : bottom.removeFromLeft (controlWidth * panel->getNumControls()));
-        bottom.removeFromLeft (gap);
-    }
+    srd::Panel::layOutRow (getSoundPanels (getInstrument()), bounds.removeFromBottom (150), gap);
+    bounds.removeFromBottom (12);
 
     // Global controls and the trigger pad on the right
     auto right = bounds.removeFromRight (240);
@@ -250,10 +311,7 @@ void AudioPluginAudioProcessorEditor::resized()
 
     // Envelope editor fills the rest, inside its panel
     auto envelope = bounds.withTrimmedRight (gap + 8).reduced (8);
-    auto tabs = envelope.removeFromTop (24);
-    pitchTab.setBounds (tabs.removeFromLeft (70));
-    tabs.removeFromLeft (4);
-    ampTab.setBounds (tabs.removeFromLeft (70));
+    envelopeTabs.setBounds (envelope.removeFromTop (24).removeFromLeft (70 * envelopeTabs.getNumItems()));
     envelope.removeFromTop (4);
     envelopeEditor.setBounds (envelope);
 }
