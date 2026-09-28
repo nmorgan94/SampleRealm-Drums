@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Parameters.h"
+#include "CymbalVoice.h"
 #include "FxChain.h"
 #include "KickVoice.h"
 #include "SnareVoice.h"
@@ -13,12 +14,6 @@
 class EngineParams
 {
 public:
-    /** The note the Hit pad plays until MIDI arrives: where each default tail sits (F1, G3). */
-    static constexpr int auditionNote (Parameters::Instrument instrument) noexcept
-    {
-        return instrument == Parameters::Instrument::snare ? 55 : 29;
-    }
-
     explicit EngineParams (juce::AudioProcessorValueTreeState& apvts)
         : instrument   (get (apvts, Parameters::instrumentId)),
           outputGain   (get (apvts, Parameters::outputGainId)),
@@ -44,6 +39,12 @@ public:
           snareSnapTone      (get (apvts, Parameters::snareSnapToneId)),
           snareSnapDecay     (get (apvts, Parameters::snareSnapDecayId)),
           snareSnapPitch     (get (apvts, Parameters::snareSnapPitchId)),
+          cymbalMetalLevel   (get (apvts, Parameters::cymbalMetalLevelId)),
+          cymbalMetalTone    (get (apvts, Parameters::cymbalMetalToneId)),
+          cymbalMetalRing    (get (apvts, Parameters::cymbalMetalRingId)),
+          cymbalNoiseLevel   (get (apvts, Parameters::cymbalNoiseLevelId)),
+          cymbalNoiseLowCut  (get (apvts, Parameters::cymbalNoiseLowCutId)),
+          cymbalNoiseHighCut (get (apvts, Parameters::cymbalNoiseHighCutId)),
           driveType    (get (apvts, Parameters::driveTypeId)),
           driveAmount  (get (apvts, Parameters::driveAmountId)),
           driveMix     (get (apvts, Parameters::driveMixId)),
@@ -87,6 +88,21 @@ public:
         return s;
     }
 
+    /** The cymbal has no pitch envelope, so it follows Tune but not the note. */
+    CymbalVoice::Settings cymbalSettings() const noexcept
+    {
+        CymbalVoice::Settings s;
+        s.frequencyRatio = tuneRatio();
+        s.lengthScale    = length.load();
+        s.metalGain      = decibelsToGain (cymbalMetalLevel.load());
+        s.metalToneHz    = cymbalMetalTone.load();
+        s.metalRing      = cymbalMetalRing.load() * 0.01f;
+        s.noiseGain      = decibelsToGain (cymbalNoiseLevel.load());
+        s.noiseLowCutHz  = cymbalNoiseLowCut.load();
+        s.noiseHighCutHz = cymbalNoiseHighCut.load();
+        return s;
+    }
+
     FxChain::Settings fxSettings() const noexcept
     {
         FxChain::Settings s;
@@ -111,6 +127,8 @@ private:
                & snareBodyLevel, & snareBodyHarmonics,
                & snareNoiseLevel, & snareNoiseLowCut, & snareNoiseHighCut,
                & snareSnapType, & snareSnapLevel, & snareSnapTone, & snareSnapDecay, & snareSnapPitch,
+               & cymbalMetalLevel, & cymbalMetalTone, & cymbalMetalRing,
+               & cymbalNoiseLevel, & cymbalNoiseLowCut, & cymbalNoiseHighCut,
                & driveType, & driveAmount, & driveMix,
                & eqLowGain, & eqMidFreq, & eqMidGain, & eqHighGain,
                & clipAmount;
@@ -151,11 +169,11 @@ private:
         played note; Tune then offsets it either way. */
     float frequencyRatio (int midiNote, float envelopeTailHz) const noexcept
     {
-        const auto tuneRatio = std::exp2 (tune.load() / 12.0f);
-
         if (keyTrack.load() < 0.5f || envelopeTailHz <= 0.0f)
-            return tuneRatio;
+            return tuneRatio();
 
-        return (float) juce::MidiMessage::getMidiNoteInHertz (midiNote) / envelopeTailHz * tuneRatio;
+        return (float) juce::MidiMessage::getMidiNoteInHertz (midiNote) / envelopeTailHz * tuneRatio();
     }
+
+    float tuneRatio() const noexcept    { return std::exp2 (tune.load() / 12.0f); }
 };

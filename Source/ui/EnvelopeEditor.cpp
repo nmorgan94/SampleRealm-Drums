@@ -100,7 +100,7 @@ namespace srd
             }
         }
 
-        viewSeconds = 8.0f;
+        viewSeconds = std::ceil (end);
     }
 
     void EnvelopeEditor::timerCallback()

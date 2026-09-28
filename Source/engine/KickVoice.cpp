@@ -4,7 +4,7 @@ void KickVoice::prepare (double sampleRate)
 {
     sub.prepare (sampleRate, fadeSeconds);
     click.prepare (sampleRate);
-    fade.reset (sampleRate, fadeSeconds);
+    fade.prepare (sampleRate, fadeSeconds);
     stop();
 }
 
@@ -12,13 +12,13 @@ void KickVoice::start (const srd::EnvelopeData& pitch, const srd::EnvelopeData& 
 {
     sub.start (pitch, amp, s.sub);
     click.trigger (s.click);
-    fade.setCurrentAndTargetValue (1.0f);
+    fade.reset();
 }
 
 void KickVoice::fadeOut() noexcept
 {
     if (isActive())
-        fade.setTargetValue (0.0f);
+        fade.fadeOut();
 }
 
 void KickVoice::stop() noexcept
@@ -31,9 +31,9 @@ void KickVoice::render (float* output, int numSamples) noexcept
 {
     for (int i = 0; i < numSamples && isActive(); ++i)
     {
-        output[i] += (sub.next() + click.next()) * fade.getNextValue();
+        output[i] += (sub.next() + click.next()) * fade.next();
 
-        if (fade.getTargetValue() <= 0.0f && ! fade.isSmoothing())
+        if (fade.isFinished())
             stop();
     }
 }

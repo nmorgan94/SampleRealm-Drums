@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CymbalVoice.h"
 #include "FxChain.h"
 #include "KickVoice.h"
 #include "SnareVoice.h"
@@ -19,9 +20,13 @@ public:
     const float* renderSnare (const srd::EnvelopeData& pitch, const srd::EnvelopeData& body, const srd::EnvelopeData& noise,
                               const SnareVoice::Settings&, const FxChain::Settings&, int numSamples);
 
+    const float* renderCymbal (const srd::EnvelopeData& metal, const srd::EnvelopeData& noise,
+                               const CymbalVoice::Settings&, const FxChain::Settings&, int numSamples);
+
 private:
     KickVoice kick;
     SnareVoice snare;
+    CymbalVoice cymbal;
     FxChain fxChain;
     juce::Array<float> scratch;
 

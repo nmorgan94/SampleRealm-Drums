@@ -65,15 +65,23 @@ bool AudioPluginAudioProcessor::isMidiEffect() const
 
 double AudioPluginAudioProcessor::getTailLengthSeconds() const
 {
-    const auto voice = engineParams.getInstrument() == Parameters::Instrument::snare
-        ? SnareVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::snareBody),
-                                          envelopeModel.getDuration (DrumEnvelopes::snareNoise),
-                                          engineParams.snareSettings (0, {}))
-        : KickVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::kickAmp), engineParams.kickSettings (0, {}));
-
     const auto latency = getSampleRate() > 0.0 ? getLatencySamples() / getSampleRate() : 0.0;
 
-    return voice + latency;
+    switch (engineParams.getInstrument())
+    {
+        case Parameters::Instrument::snare:
+            return latency + SnareVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::snareBody),
+                                                             envelopeModel.getDuration (DrumEnvelopes::snareNoise),
+                                                             engineParams.snareSettings (0, {}));
+        case Parameters::Instrument::cymbal:
+            return latency + CymbalVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::cymbalMetal),
+                                                              envelopeModel.getDuration (DrumEnvelopes::cymbalNoise),
+                                                              engineParams.cymbalSettings());
+        case Parameters::Instrument::kick:
+            break;
+    }
+
+    return latency + KickVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::kickAmp), engineParams.kickSettings (0, {}));
 }
 
 int AudioPluginAudioProcessor::getNumPrograms()
@@ -105,6 +113,7 @@ void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     kickVoices.prepare (sampleRate);
     snareVoices.prepare (sampleRate);
+    cymbalVoices.prepare (sampleRate);
 
     fxChain.prepare (sampleRate, samplesPerBlock);
     fxChain.setSettings (engineParams.fxSettings());
@@ -117,6 +126,7 @@ void AudioPluginAudioProcessor::releaseResources()
 {
     kickVoices.stop();
     snareVoices.stop();
+    cymbalVoices.stop();
 }
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -130,23 +140,40 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 }
 
 //==============================================================================
+int AudioPluginAudioProcessor::getLastNote() const noexcept
+{
+    return lastNoteOf (engineParams.getInstrument()).load();
+}
+
 void AudioPluginAudioProcessor::startNote (int midiNote) noexcept
 {
     fadeOutAll();
 
-    if (playing == Parameters::Instrument::snare)
+    switch (playing)
     {
-        const auto& pitch = envelopes[DrumEnvelopes::snarePitch];
-        snareVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::snareBody], envelopes[DrumEnvelopes::snareNoise],
-                                          engineParams.snareSettings (midiNote, pitch));
-    }
-    else
-    {
-        const auto& pitch = envelopes[DrumEnvelopes::kickPitch];
-        kickVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::kickAmp], engineParams.kickSettings (midiNote, pitch));
+        case Parameters::Instrument::kick:
+        {
+            const auto& pitch = envelopes[DrumEnvelopes::kickPitch];
+            kickVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::kickAmp], engineParams.kickSettings (midiNote, pitch));
+            break;
+        }
+        case Parameters::Instrument::snare:
+        {
+            const auto& pitch = envelopes[DrumEnvelopes::snarePitch];
+            snareVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::snareBody], envelopes[DrumEnvelopes::snareNoise],
+                                              engineParams.snareSettings (midiNote, pitch));
+            break;
+        }
+        case Parameters::Instrument::cymbal:
+            cymbalVoices.getFreeVoice().start (envelopes[DrumEnvelopes::cymbalMetal], envelopes[DrumEnvelopes::cymbalNoise],
+                                               engineParams.cymbalSettings());
+            break;
     }
 
-    lastNoteOf (playing) = midiNote;
+    // The cymbal ignores the note
+    if (playing != Parameters::Instrument::cymbal)
+        lastNoteOf (playing) = midiNote;
+
     ++hitCount;
 }
 
@@ -154,12 +181,14 @@ void AudioPluginAudioProcessor::fadeOutAll() noexcept
 {
     kickVoices.fadeOut();
     snareVoices.fadeOut();
+    cymbalVoices.fadeOut();
 }
 
 void AudioPluginAudioProcessor::renderVoices (float* output, int startSample, int endSample) noexcept
 {
     kickVoices.render (output + startSample, endSample - startSample);
     snareVoices.render (output + startSample, endSample - startSample);
+    cymbalVoices.render (output + startSample, endSample - startSample);
 }
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,

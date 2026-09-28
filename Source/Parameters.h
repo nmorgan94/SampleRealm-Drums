@@ -48,6 +48,16 @@ namespace Parameters
     inline const juce::ParameterID snareSnapDecayId { "snareSnapDecay", versionHint };
     inline const juce::ParameterID snareSnapPitchId { "snareSnapPitch", versionHint };
 
+    // Cymbal metal
+    inline const juce::ParameterID cymbalMetalLevelId { "cymbalMetalLevel", versionHint };
+    inline const juce::ParameterID cymbalMetalToneId  { "cymbalMetalTone",  versionHint };
+    inline const juce::ParameterID cymbalMetalRingId  { "cymbalMetalRing",  versionHint };
+
+    // Cymbal noise
+    inline const juce::ParameterID cymbalNoiseLevelId   { "cymbalNoiseLevel",   versionHint };
+    inline const juce::ParameterID cymbalNoiseLowCutId  { "cymbalNoiseLowCut",  versionHint };
+    inline const juce::ParameterID cymbalNoiseHighCutId { "cymbalNoiseHighCut", versionHint };
+
     // Drive
     inline const juce::ParameterID driveTypeId   { "driveType",   versionHint };
     inline const juce::ParameterID driveAmountId { "driveAmount", versionHint };
@@ -62,14 +72,15 @@ namespace Parameters
     // Clip
     inline const juce::ParameterID clipAmountId { "clipAmount", versionHint };
 
-    enum class Instrument { kick, snare };
-    inline const juce::StringArray instrumentNames { "Kick", "Snare" };
+    enum class Instrument { kick, snare, cymbal };
+    inline const juce::StringArray instrumentNames { "Kick", "Snare", "Cymbal" };
 
     constexpr Instrument instrumentFromIndex (int index) noexcept
     {
         switch (index)
         {
             case 1:  return Instrument::snare;
+            case 2:  return Instrument::cymbal;
             default: return Instrument::kick;
         }
     }

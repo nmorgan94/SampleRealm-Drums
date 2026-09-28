@@ -66,6 +66,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createLayout()
                 std::make_unique<Float> (snareSnapDecayId, "Snap Decay", skewedRange (1.0f, 100.0f, 15.0f, 0.1f), 8.0f, withSuffix (" ms", 1)),
                 std::make_unique<Float> (snareSnapPitchId, "Snap Pitch", skewedRange (200.0f, 10000.0f, 2000.0f), 2500.0f, hertz()));
 
+    // Cymbal metal
+    layout.add (gainParam (cymbalMetalLevelId, "Metal Level", minusInfinityDb, 6.0f, -6.0f),
+                std::make_unique<Float> (cymbalMetalToneId, "Metal Tone", skewedRange (2000.0f, 16000.0f, 6000.0f), 8000.0f, hertz()),
+                percentParam (cymbalMetalRingId, "Metal Ring", 100.0f, 30.0f));
+
+    // Cymbal noise
+    layout.add (gainParam (cymbalNoiseLevelId, "Cymbal Noise Level", minusInfinityDb, 6.0f, 0.0f),
+                std::make_unique<Float> (cymbalNoiseLowCutId, "Cymbal Noise Low Cut", skewedRange (200.0f, 12000.0f, 3000.0f), 6000.0f, hertz()),
+                std::make_unique<Float> (cymbalNoiseHighCutId, "Cymbal Noise High Cut", skewedRange (1000.0f, 18000.0f, 6000.0f), 16000.0f, hertz()));
+
     // Drive
     layout.add (std::make_unique<juce::AudioParameterChoice> (driveTypeId, "Drive Type", srd::Drive::getTypeNames(), 0),
                 percentParam (driveAmountId, "Drive", 100.0f, 20.0f),

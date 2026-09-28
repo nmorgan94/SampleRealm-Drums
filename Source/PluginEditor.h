@@ -76,10 +76,10 @@ private:
     srd::Knob bodyLevel     { apvts, Parameters::snareBodyLevelId,     "Level" };
     srd::Knob bodyHarmonics { apvts, Parameters::snareBodyHarmonicsId, "Harmonics" };
 
-    srd::Panel noisePanel { "Noise" };
-    srd::Knob noiseLevel    { apvts, Parameters::snareNoiseLevelId,   "Level" };
-    srd::Knob noiseLowCut   { apvts, Parameters::snareNoiseLowCutId,  "Low Cut" };
-    srd::Knob noiseHighCut  { apvts, Parameters::snareNoiseHighCutId, "High Cut" };
+    srd::Panel snareNoisePanel { "Noise" };
+    srd::Knob snareNoiseLevel   { apvts, Parameters::snareNoiseLevelId,   "Level" };
+    srd::Knob snareNoiseLowCut  { apvts, Parameters::snareNoiseLowCutId,  "Low Cut" };
+    srd::Knob snareNoiseHighCut { apvts, Parameters::snareNoiseHighCutId, "High Cut" };
 
     srd::Panel snapPanel { "Snap" };
     srd::ChoiceBox snapType { apvts, Parameters::snareSnapTypeId };
@@ -87,6 +87,17 @@ private:
     srd::Knob snapTone  { apvts, Parameters::snareSnapToneId,  "Tone" };
     srd::Knob snapDecay { apvts, Parameters::snareSnapDecayId, "Decay" };
     srd::Knob snapPitch { apvts, Parameters::snareSnapPitchId, "Pitch" };
+
+    // Cymbal
+    srd::Panel metalPanel { "Metal" };
+    srd::Knob metalLevel { apvts, Parameters::cymbalMetalLevelId, "Level" };
+    srd::Knob metalTone  { apvts, Parameters::cymbalMetalToneId,  "Tone" };
+    srd::Knob metalRing  { apvts, Parameters::cymbalMetalRingId,  "Ring" };
+
+    srd::Panel cymbalNoisePanel { "Noise" };
+    srd::Knob cymbalNoiseLevel   { apvts, Parameters::cymbalNoiseLevelId,   "Level" };
+    srd::Knob cymbalNoiseLowCut  { apvts, Parameters::cymbalNoiseLowCutId,  "Low Cut" };
+    srd::Knob cymbalNoiseHighCut { apvts, Parameters::cymbalNoiseHighCutId, "High Cut" };
 
     // Shared
     srd::Panel drivePanel { "Drive" };

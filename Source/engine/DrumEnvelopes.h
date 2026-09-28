@@ -12,7 +12,9 @@ namespace DrumEnvelopes
         kickAmp,
         snarePitch,
         snareBody,
-        snareNoise
+        snareNoise,
+        cymbalMetal,
+        cymbalNoise
     };
 
     inline srd::EnvelopeSpec pitchSpec (const juce::String& id, float minHz, float maxHz, std::vector<srd::EnvelopeNode> nodes)
@@ -20,9 +22,9 @@ namespace DrumEnvelopes
         return { id, srd::EnvelopeSpec::Scale::logarithmic, minHz, maxHz, 2.0f, std::move (nodes) };
     }
 
-    inline srd::EnvelopeSpec gainSpec (const juce::String& id, std::vector<srd::EnvelopeNode> nodes)
+    inline srd::EnvelopeSpec gainSpec (const juce::String& id, std::vector<srd::EnvelopeNode> nodes, float maxTime = 2.0f)
     {
-        return { id, srd::EnvelopeSpec::Scale::linear, 0.0f, 1.0f, 2.0f, std::move (nodes) };
+        return { id, srd::EnvelopeSpec::Scale::linear, 0.0f, 1.0f, maxTime, std::move (nodes) };
     }
 
     /** In Index order. */
@@ -51,7 +53,15 @@ namespace DrumEnvelopes
 
             gainSpec ("snareNoise", { { 0.0f,   1.0f,  0.0f },
                                       { 0.080f, 0.35f, 0.5f },
-                                      { 0.250f, 0.0f,  0.3f } })
+                                      { 0.250f, 0.0f,  0.3f } }),
+
+            // A closed hat; up to 4 s leaves room for a ride
+            gainSpec ("cymbalMetal", { { 0.0f,   1.0f, 0.0f },
+                                       { 0.080f, 0.0f, 0.5f } }, 4.0f),
+
+            gainSpec ("cymbalNoise", { { 0.0f,   1.0f, 0.0f },
+                                       { 0.020f, 0.3f, 0.4f },
+                                       { 0.090f, 0.0f, 0.3f } }, 4.0f)
         };
     }
 }

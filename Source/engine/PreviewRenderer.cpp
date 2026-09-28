@@ -4,6 +4,7 @@ void PreviewRenderer::prepare (double sampleRate)
 {
     kick.prepare (sampleRate);
     snare.prepare (sampleRate);
+    cymbal.prepare (sampleRate);
     fxChain.prepare (sampleRate, 512);
 }
 
@@ -37,4 +38,12 @@ const float* PreviewRenderer::renderSnare (const srd::EnvelopeData& pitch, const
 {
     snare.start (pitch, body, noise, voiceSettings);
     return render (snare, fxSettings, numSamples);
+}
+
+const float* PreviewRenderer::renderCymbal (const srd::EnvelopeData& metal, const srd::EnvelopeData& noise,
+                                            const CymbalVoice::Settings& voiceSettings, const FxChain::Settings& fxSettings,
+                                            int numSamples)
+{
+    cymbal.start (metal, noise, voiceSettings);
+    return render (cymbal, fxSettings, numSamples);
 }

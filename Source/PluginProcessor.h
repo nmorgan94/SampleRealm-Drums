@@ -59,10 +59,7 @@ public:
     void triggerAudition() noexcept                     { auditionPending = true; }
 
     /** The current instrument's last note, so the UI can show where its tail lands with Key Track on. */
-    int getLastNote() const noexcept
-    {
-        return engineParams.getInstrument() == Parameters::Instrument::snare ? lastSnareNote.load() : lastKickNote.load();
-    }
+    int getLastNote() const noexcept;
 
     /** Increments on every hit, so the UI can flash without listening to MIDI. */
     juce::uint32 getHitCount() const noexcept           { return hitCount.load(); }
@@ -77,6 +74,7 @@ private:
 
     srd::VoicePool<KickVoice, 4> kickVoices;
     srd::VoicePool<SnareVoice, 4> snareVoices;
+    srd::VoicePool<CymbalVoice, 4> cymbalVoices;
     FxChain fxChain;
 
     srd::EnvelopeModel::Snapshot envelopes;
@@ -87,15 +85,24 @@ private:
     std::atomic<bool> auditionPending { false };
     std::atomic<juce::uint32> hitCount { 0 };
 
-    // Each instrument keeps its own last note, so switching back and forth keeps both
-    std::atomic<int> lastKickNote  { EngineParams::auditionNote (Parameters::Instrument::kick) };
-    std::atomic<int> lastSnareNote { EngineParams::auditionNote (Parameters::Instrument::snare) };
+    // Each instrument keeps its own last note. Until MIDI arrives the Hit pad plays where each
+    // default pitch envelope settles, so turning Key Track on doesn't change the sound
+    std::atomic<int> lastKickNote   { 29 };  // F1, 43.65 Hz
+    std::atomic<int> lastSnareNote  { 55 };  // G3, 196 Hz
+    std::atomic<int> lastCymbalNote { 42 };  // the cymbal ignores the note; kept so lastNoteOf covers every instrument
 
     static srd::PresetManager::Config createPresetConfig();
 
-    std::atomic<int>& lastNoteOf (Parameters::Instrument instrument) noexcept
+    auto& lastNoteOf (this auto& self, Parameters::Instrument instrument) noexcept
     {
-        return instrument == Parameters::Instrument::snare ? lastSnareNote : lastKickNote;
+        switch (instrument)
+        {
+            case Parameters::Instrument::snare:  return self.lastSnareNote;
+            case Parameters::Instrument::cymbal: return self.lastCymbalNote;
+            case Parameters::Instrument::kick:   break;
+        }
+
+        return self.lastKickNote;
     }
 
     void startNote (int midiNote) noexcept;

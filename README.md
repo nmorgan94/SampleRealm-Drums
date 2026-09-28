@@ -1,31 +1,56 @@
 # SampleRealm: Drums
 
-A kick drum synthesizer for Drum & Bass producers
+A drum synthesizer for producers
 
-Every sound is synthesised, with no samples, so kicks can be tuned to the track's key and reshaped hit by hit.
+Every sound is synthesised, with no samples, so kicks and snares can be tuned to the track's key and every drum can be reshaped hit by hit.
+
+Each instance plays one instrument, chosen with the switch at the top: **Kick**, **Snare** or **Cymbal**. The instrument is saved with presets and DAW sessions. Switching keeps every instrument's settings, so you can flip back and forth without losing anything.
 
 ## Features
 
-### Sub
-- Sine oscillator with a blend of 2nd and 3rd harmonics, which are dropped above Nyquist so they never alias
-- Start phase from 0° to 90°, for a clean onset or a punchy click
-- Level from −∞ to +6 dB
+### Kick
+- **Sub:** a sine oscillator with a blend of 2nd and 3rd harmonics. The harmonics are dropped above Nyquist, so they never alias.
+  - Start phase from 0° to 90°, for a clean onset or a punchy click
+  - Level from −∞ to +6 dB
+- **Click:** a synthesised transient in three modes:
+  - Noise: band-passed noise
+  - Sweep: a falling sine
+  - Impulse: a single-cycle tick
+
+  It has Level, Tone, Decay and Pitch controls.
+- **Envelopes:** Pitch (20 Hz to 12 kHz) and Amp
+
+### Snare
+- **Body:** a tuned oscillator with harmonics, with its own pitch sweep
+- **Noise:** band-limited noise for the wires, with Level, Low Cut and High Cut
+- **Snap:** the same transient generator as the kick's Click, tuned for a snare's crack
+- **Envelopes:** Pitch (40 Hz to 8 kHz), Body and Noise, so the tone and the wires can decay separately
+
+### Cymbal
+One engine for closed hats, open hats and rides. The difference between them is how you shape it.
+- **Metal:** six anti-aliased square waves at the 808's inharmonic ratios, through a band-pass
+  - **Tone** sets the centre of the band, from 2 to 16 kHz.
+  - **Ring** narrows the band, from trashy and broad to a bell-like ping.
+- **Noise:** band-limited noise, with Level, Low Cut and High Cut
+- **Envelopes:** Metal and Noise, each up to 4 s long. For example:
+  - Short envelopes give a closed hat.
+  - Longer ones give an open hat.
+  - A long Metal envelope with a short Noise tick gives a ride.
+- It has no pitch envelope, so it follows Tune but not the played note. Key Track and Pitch Depth are greyed out.
 
 ### Envelopes
-- Breakpoint pitch and amp envelopes, with up to 32 nodes each and adjustable curvature per segment
-- Pitch interpolated on a logarithmic scale, from 20 Hz to 12 kHz
-- Length stretches both envelopes in time (0.25× to 4×)
-- Pitch Depth scales how far the pitch sweep reaches above the tail (0 to 200%)
+- Breakpoint envelopes with up to 32 nodes each and adjustable curvature per segment
+- Pitch envelopes interpolate on a logarithmic scale
+- A waveform preview of the hit is drawn under the curve as you edit
 
-### Tuning
-- Key Track, which lands the tail on the played MIDI note while the whole sweep follows
-- Tune, ±24 semitones with fine steps
-
-### Click
-- Synthesised transients in three modes: Noise (band-passed), Sweep (a falling sine) and Impulse (a single-cycle tick)
-- Level, Tone, Decay and Pitch controls
+### Global
+- **Tune:** ±24 semitones with fine steps
+- **Key Track** (kick and snare): lands the tail of the pitch sweep on the played MIDI note, and the whole sweep follows. The **Tail** readout shows the note and frequency it settles on.
+- **Length:** stretches every envelope in time (0.25× to 4×), and the Click and Snap decays with them.
+- **Pitch Depth** (kick and snare): scales how far the pitch sweep reaches above the tail (0 to 200%)
 
 ### Drive, EQ & Clip
+Shared by all three instruments:
 - Drive with four shapes (Soft, Hard, Fold and Tube), 4× oversampled so it doesn't alias, with a dry/wet mix
 - 3-band EQ: an 80 Hz low shelf, a sweepable peak from 100 Hz to 5 kHz and a 6 kHz high shelf
 - Soft-knee clipper that pushes up to +18 dB into a 0 dBFS ceiling
@@ -33,8 +58,10 @@ Every sound is synthesised, with no samples, so kicks can be tuned to the track'
 
 ### Playback
 - Sample-accurate MIDI triggering
-- Click-free retriggering: the previous hit fades out over 3 ms while the next one starts
-- Trigger button for auditioning without MIDI
+- Click-free retriggering: the previous hit fades out over 3 ms while the next one starts. A closed hat therefore cuts off a ringing open hat.
+- Switching instrument fades out any hit that's still ringing
+- A Hit pad for auditioning without MIDI
+- Mono output, copied to every output channel
 
 ### Presets
 - Factory presets built into the plugin

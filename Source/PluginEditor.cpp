@@ -7,6 +7,7 @@ namespace
     constexpr int editorWidth  = 1080;
     constexpr int editorHeight = 640;
     constexpr double previewSampleRate = 44100.0;
+    constexpr float maxPreviewSeconds = 8.0f;
 
     using Palette = CustomLookAndFeel::Palette;
 
@@ -23,9 +24,19 @@ namespace
                                                EnvelopeTab { "Body",  DrumEnvelopes::snareBody },
                                                EnvelopeTab { "Noise", DrumEnvelopes::snareNoise } };
 
+    const juce::Array<EnvelopeTab> cymbalTabs { EnvelopeTab { "Metal", DrumEnvelopes::cymbalMetal },
+                                                EnvelopeTab { "Noise", DrumEnvelopes::cymbalNoise } };
+
     const juce::Array<EnvelopeTab>& getEnvelopeTabs (Parameters::Instrument instrument)
     {
-        return instrument == Parameters::Instrument::snare ? snareTabs : kickTabs;
+        switch (instrument)
+        {
+            case Parameters::Instrument::snare:  return snareTabs;
+            case Parameters::Instrument::cymbal: return cymbalTabs;
+            case Parameters::Instrument::kick:   break;
+        }
+
+        return kickTabs;
     }
 
     /** Nearest note, with middle C as C4 (so 43.65 Hz is F1). */
@@ -73,8 +84,10 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     addPanel (subPanel,    { &subLevel, &subHarmonics, &subPhase });
     addPanel (clickPanel,  { &clickLevel, &clickTone, &clickDecay, &clickPitch });
     addPanel (bodyPanel,   { &bodyLevel, &bodyHarmonics });
-    addPanel (noisePanel,  { &noiseLevel, &noiseLowCut, &noiseHighCut });
+    addPanel (snareNoisePanel, { &snareNoiseLevel, &snareNoiseLowCut, &snareNoiseHighCut });
     addPanel (snapPanel,   { &snapLevel, &snapTone, &snapDecay, &snapPitch });
+    addPanel (metalPanel,  { &metalLevel, &metalTone, &metalRing });
+    addPanel (cymbalNoisePanel, { &cymbalNoiseLevel, &cymbalNoiseLowCut, &cymbalNoiseHighCut });
     addPanel (drivePanel,  { &driveAmount, &driveMix });
     addPanel (eqPanel,     { &eqLow, &eqMidFreq, &eqMid, &eqHigh });
     addPanel (outputPanel, { &clip, &output });
@@ -122,12 +135,21 @@ void AudioPluginAudioProcessorEditor::showInstrument()
     const auto instrument = getInstrument();
 
     // Hide every instrument's panels, then show this one's; the shared panels come straight back
-    for (auto each : { Parameters::Instrument::kick, Parameters::Instrument::snare })
-        for (auto* panel : getSoundPanels (each))
+    for (int i = 0; i < Parameters::instrumentNames.size(); ++i)
+        for (auto* panel : getSoundPanels (Parameters::instrumentFromIndex (i)))
             panel->setVisible (false);
 
     for (auto* panel : getSoundPanels (instrument))
         panel->setVisible (true);
+
+    // The cymbal has no pitch envelope for these to act on
+    const auto hasPitch = instrument != Parameters::Instrument::cymbal;
+
+    for (auto* control : std::initializer_list<juce::Component*> { &keyTrack, &pitchDepth })
+    {
+        control->setEnabled (hasPitch);
+        control->setAlpha (hasPitch ? 1.0f : 0.35f);
+    }
 
     juce::StringArray tabNames;
 
@@ -143,8 +165,12 @@ void AudioPluginAudioProcessorEditor::showInstrument()
 
 juce::Array<srd::Panel*> AudioPluginAudioProcessorEditor::getSoundPanels (Parameters::Instrument instrument)
 {
-    if (instrument == Parameters::Instrument::snare)
-        return { &bodyPanel, &noisePanel, &snapPanel, &drivePanel, &eqPanel, &outputPanel };
+    switch (instrument)
+    {
+        case Parameters::Instrument::snare:  return { &bodyPanel, &snareNoisePanel, &snapPanel, &drivePanel, &eqPanel, &outputPanel };
+        case Parameters::Instrument::cymbal: return { &metalPanel, &cymbalNoisePanel, &drivePanel, &eqPanel, &outputPanel };
+        case Parameters::Instrument::kick:   break;
+    }
 
     return { &subPanel, &clickPanel, &drivePanel, &eqPanel, &outputPanel };
 }
@@ -196,33 +222,48 @@ void AudioPluginAudioProcessorEditor::updatePreview()
 
     const auto samplesToShow = [this] (float hitSeconds)
     {
-        return juce::roundToInt (std::min (renderedViewSeconds, hitSeconds) * previewSampleRate);
+        return juce::roundToInt (std::min ({ renderedViewSeconds, hitSeconds, maxPreviewSeconds }) * previewSampleRate);
     };
 
     const float* samples = nullptr;
     int numSamples = 0;
-    float hz = 0.0f;
+    std::optional<float> hz;  // where the pitch settles, for the Tail readout
 
-    if (getInstrument() == Parameters::Instrument::snare)
+    switch (getInstrument())
     {
-        const auto pitch = model.getData (DrumEnvelopes::snarePitch);
-        const auto body  = model.getData (DrumEnvelopes::snareBody);
-        const auto noise = model.getData (DrumEnvelopes::snareNoise);
-        const auto settings = engineParams.snareSettings (note, pitch);
+        case Parameters::Instrument::kick:
+        {
+            const auto pitch = model.getData (DrumEnvelopes::kickPitch);
+            const auto amp   = model.getData (DrumEnvelopes::kickAmp);
+            const auto settings = engineParams.kickSettings (note, pitch);
 
-        numSamples = samplesToShow (SnareVoice::getDurationSeconds (body.getDuration(), noise.getDuration(), settings));
-        samples = renderer.renderSnare (pitch, body, noise, settings, fxSettings, numSamples);
-        hz = srd::EnvelopedOscillator::getTailHz (pitch, settings.body.frequencyRatio);
-    }
-    else
-    {
-        const auto pitch = model.getData (DrumEnvelopes::kickPitch);
-        const auto amp   = model.getData (DrumEnvelopes::kickAmp);
-        const auto settings = engineParams.kickSettings (note, pitch);
+            numSamples = samplesToShow (KickVoice::getDurationSeconds (amp.getDuration(), settings));
+            samples = renderer.renderKick (pitch, amp, settings, fxSettings, numSamples);
+            hz = srd::EnvelopedOscillator::getTailHz (pitch, settings.sub.frequencyRatio);
+            break;
+        }
+        case Parameters::Instrument::snare:
+        {
+            const auto pitch = model.getData (DrumEnvelopes::snarePitch);
+            const auto body  = model.getData (DrumEnvelopes::snareBody);
+            const auto noise = model.getData (DrumEnvelopes::snareNoise);
+            const auto settings = engineParams.snareSettings (note, pitch);
 
-        numSamples = samplesToShow (KickVoice::getDurationSeconds (amp.getDuration(), settings));
-        samples = renderer.renderKick (pitch, amp, settings, fxSettings, numSamples);
-        hz = srd::EnvelopedOscillator::getTailHz (pitch, settings.sub.frequencyRatio);
+            numSamples = samplesToShow (SnareVoice::getDurationSeconds (body.getDuration(), noise.getDuration(), settings));
+            samples = renderer.renderSnare (pitch, body, noise, settings, fxSettings, numSamples);
+            hz = srd::EnvelopedOscillator::getTailHz (pitch, settings.body.frequencyRatio);
+            break;
+        }
+        case Parameters::Instrument::cymbal:
+        {
+            const auto metal = model.getData (DrumEnvelopes::cymbalMetal);
+            const auto noise = model.getData (DrumEnvelopes::cymbalNoise);
+            const auto settings = engineParams.cymbalSettings();
+
+            numSamples = samplesToShow (CymbalVoice::getDurationSeconds (metal.getDuration(), noise.getDuration(), settings));
+            samples = renderer.renderCymbal (metal, noise, settings, fxSettings, numSamples);
+            break;  // no tail note, so hz stays empty
+        }
     }
 
     renderedEnvelopeVersion = version;
@@ -231,7 +272,15 @@ void AudioPluginAudioProcessorEditor::updatePreview()
     waveform.setSamples (samples, numSamples, previewSampleRate);
     envelopeEditor.repaint();
 
-    if (const auto newNote = noteName (hz), newHz = srd::params::hertzText (hz); newNote != tailNote || newHz != tailHz)
+    juce::String newNote, newHz;
+
+    if (hz.has_value())
+    {
+        newNote = noteName (*hz);
+        newHz = srd::params::hertzText (*hz);
+    }
+
+    if (newNote != tailNote || newHz != tailHz)
     {
         tailNote = newNote;
         tailHz = newHz;
@@ -266,16 +315,19 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("DRUMS", title, juce::Justification::centredLeft);
 
     // Tail readout: where the last note played (and the Hit pad) settles
-    auto readout = readoutArea;
-    g.setColour (Palette::textDim);
-    g.setFont (customLookAndFeel.font (11.0f, true));
-    g.drawText ("TAIL", readout.removeFromTop (16), juce::Justification::centredRight);
-    g.setColour (Palette::accent);
-    g.setFont (customLookAndFeel.font (18.0f, true));
-    g.drawText (tailNote, readout.removeFromTop (22), juce::Justification::centredRight);
-    g.setColour (Palette::textDim);
-    g.setFont (customLookAndFeel.font (11.0f));
-    g.drawText (tailHz, readout, juce::Justification::centredRight);
+    if (tailNote.isNotEmpty())
+    {
+        auto readout = readoutArea;
+        g.setColour (Palette::textDim);
+        g.setFont (customLookAndFeel.font (11.0f, true));
+        g.drawText ("TAIL", readout.removeFromTop (16), juce::Justification::centredRight);
+        g.setColour (Palette::accent);
+        g.setFont (customLookAndFeel.font (18.0f, true));
+        g.drawText (tailNote, readout.removeFromTop (22), juce::Justification::centredRight);
+        g.setColour (Palette::textDim);
+        g.setFont (customLookAndFeel.font (11.0f));
+        g.drawText (tailHz, readout, juce::Justification::centredRight);
+    }
 
     // Envelope panel
     const auto envelopeArea = envelopeEditor.getBounds().getUnion (envelopeTabs.getBounds()).expanded (8).toFloat();
@@ -292,7 +344,7 @@ void AudioPluginAudioProcessorEditor::resized()
     // Top bar
     auto top = bounds.removeFromTop (44);
     titleArea = top.removeFromLeft (150);
-    instrumentSwitch.setBounds (top.removeFromLeft (150).withSizeKeepingCentre (150, 30));
+    instrumentSwitch.setBounds (top.removeFromLeft (220).withSizeKeepingCentre (220, 30));
     readoutArea = top.removeFromRight (150);
     presetBar.setBounds (top.withSizeKeepingCentre (std::min (top.getWidth() - 24, 460), 30));
 

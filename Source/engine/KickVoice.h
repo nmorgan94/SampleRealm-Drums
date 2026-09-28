@@ -2,6 +2,7 @@
 
 #include "../dsp/ClickGenerator.h"
 #include "../dsp/EnvelopedOscillator.h"
+#include "../dsp/RetriggerFade.h"
 
 //==============================================================================
 /**
@@ -42,5 +43,5 @@ public:
 private:
     srd::EnvelopedOscillator sub;
     srd::ClickGenerator click;
-    juce::SmoothedValue<float> fade { 1.0f }; // retrigger fade-out
+    srd::RetriggerFade fade;
 };

@@ -1,8 +1,9 @@
 #pragma once
 
 #include "../dsp/ClickGenerator.h"
+#include "../dsp/EnvelopedNoise.h"
 #include "../dsp/EnvelopedOscillator.h"
-#include "../dsp/NoiseLayer.h"
+#include "../dsp/RetriggerFade.h"
 
 //==============================================================================
 /**
@@ -38,15 +39,13 @@ public:
     void fadeOut() noexcept;
 
     void stop() noexcept;
-    bool isActive() const noexcept     { return body.isActive() || noiseEnvelope.isActive() || snap.isActive(); }
+    bool isActive() const noexcept     { return body.isActive() || wires.isActive() || snap.isActive(); }
 
     void render (float* output, int numSamples) noexcept;
 
 private:
     srd::EnvelopedOscillator body;
-    srd::NoiseLayer noise;
-    srd::EnvelopePlayer noiseEnvelope;
+    srd::EnvelopedNoise wires;
     srd::ClickGenerator snap;
-
-    juce::SmoothedValue<float> fade { 1.0f }; // retrigger fade-out
+    srd::RetriggerFade fade;
 };
