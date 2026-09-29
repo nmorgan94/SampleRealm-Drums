@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Liquid Snare" category="Liquid" type="Snare" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="1"/>
+    <PARAM id="snareSnapLevel" value="-10.0"/>
+    <PARAM id="driveAmount" value="15.0"/>
+    <PARAM id="eqHighGain" value="2.0"/>
+    <PARAM id="outputGain" value="-4.5"/>
+    <ENVELOPES>
+      <ENV id="snarePitch">
+        <NODE t="0.0" v="380.0" c="0.0"/>
+        <NODE t="0.01" v="200.0" c="0.5"/>
+        <NODE t="0.06" v="182.0" c="0.3"/>
+        <NODE t="0.12" v="180.0" c="0.0"/>
+      </ENV>
+      <ENV id="snareBody">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.004" v="1.0" c="0.0"/>
+        <NODE t="0.14" v="0.0" c="0.5"/>
+      </ENV>
+      <ENV id="snareNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.1" v="0.4" c="0.4"/>
+        <NODE t="0.3" v="0.0" c="0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

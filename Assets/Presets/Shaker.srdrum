@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Shaker" category="Percussion" type="Cymbal" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="2"/>
+    <PARAM id="cymbalMetalLevel" value="-60.0"/>
+    <PARAM id="cymbalNoiseLowCut" value="5000.0"/>
+    <PARAM id="outputGain" value="-3.5"/>
+    <ENVELOPES>
+      <ENV id="cymbalNoise">
+        <NODE t="0.0" v="0.2" c="0.0"/>
+        <NODE t="0.015" v="1.0" c="-0.3"/>
+        <NODE t="0.08" v="0.0" c="0.4"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

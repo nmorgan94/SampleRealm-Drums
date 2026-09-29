@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Halftime Snare" category="Liquid" type="Snare" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="1"/>
+    <PARAM id="snareBodyLevel" value="-3.0"/>
+    <PARAM id="snareNoiseLowCut" value="600.0"/>
+    <PARAM id="snareNoiseHighCut" value="10000.0"/>
+    <ENVELOPES>
+      <ENV id="snarePitch">
+        <NODE t="0.0" v="360.0" c="0.0"/>
+        <NODE t="0.012" v="190.0" c="0.5"/>
+        <NODE t="0.07" v="172.0" c="0.3"/>
+        <NODE t="0.15" v="170.0" c="0.0"/>
+      </ENV>
+      <ENV id="snareBody">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.005" v="1.0" c="0.0"/>
+        <NODE t="0.18" v="0.0" c="0.5"/>
+      </ENV>
+      <ENV id="snareNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.12" v="0.5" c="0.4"/>
+        <NODE t="0.45" v="0.0" c="0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

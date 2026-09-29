@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Neuro Snare" category="Neuro" type="Snare" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="1"/>
+    <PARAM id="snareBodyHarmonics" value="50.0"/>
+    <PARAM id="snareNoiseLowCut" value="1500.0"/>
+    <PARAM id="snareSnapLevel" value="-4.0"/>
+    <PARAM id="driveType" value="1"/>
+    <PARAM id="driveAmount" value="50.0"/>
+    <PARAM id="eqMidFreq" value="1200.0"/>
+    <PARAM id="eqMidGain" value="3.0"/>
+    <PARAM id="outputGain" value="-6.5"/>
+    <ENVELOPES>
+      <ENV id="snarePitch">
+        <NODE t="0.0" v="500.0" c="0.0"/>
+        <NODE t="0.008" v="250.0" c="0.5"/>
+        <NODE t="0.05" v="214.0" c="0.3"/>
+        <NODE t="0.1" v="210.0" c="0.0"/>
+      </ENV>
+      <ENV id="snareBody">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.003" v="1.0" c="0.0"/>
+        <NODE t="0.1" v="0.0" c="0.6"/>
+      </ENV>
+      <ENV id="snareNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.07" v="0.45" c="0.5"/>
+        <NODE t="0.22" v="0.0" c="0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

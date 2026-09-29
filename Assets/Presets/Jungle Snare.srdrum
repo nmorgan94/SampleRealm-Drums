@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Jungle Snare" category="Vintage" type="Snare" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="1"/>
+    <PARAM id="snareBodyLevel" value="-2.0"/>
+    <PARAM id="snareBodyHarmonics" value="30.0"/>
+    <PARAM id="driveType" value="3"/>
+    <PARAM id="driveAmount" value="35.0"/>
+    <PARAM id="outputGain" value="-5.5"/>
+    <ENVELOPES>
+      <ENV id="snarePitch">
+        <NODE t="0.0" v="480.0" c="0.0"/>
+        <NODE t="0.008" v="260.0" c="0.5"/>
+        <NODE t="0.05" v="233.0" c="0.3"/>
+        <NODE t="0.1" v="230.0" c="0.0"/>
+      </ENV>
+      <ENV id="snareBody">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.004" v="1.0" c="0.0"/>
+        <NODE t="0.08" v="0.5" c="0.3"/>
+        <NODE t="0.2" v="0.0" c="0.4"/>
+      </ENV>
+      <ENV id="snareNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.06" v="0.35" c="0.5"/>
+        <NODE t="0.18" v="0.0" c="0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

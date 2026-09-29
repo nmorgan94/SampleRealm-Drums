@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Jungle Kick" category="Vintage" type="Kick" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="0"/>
+    <PARAM id="subHarmonics" value="30.0"/>
+    <PARAM id="driveType" value="3"/>
+    <PARAM id="driveAmount" value="35.0"/>
+    <PARAM id="eqHighGain" value="-3.0"/>
+    <PARAM id="outputGain" value="-4.0"/>
+    <ENVELOPES>
+      <ENV id="pitch">
+        <NODE t="0.0" v="2500.0" c="0.0"/>
+        <NODE t="0.006" v="350.0" c="0.5"/>
+        <NODE t="0.04" v="95.0" c="0.5"/>
+        <NODE t="0.1" v="55.0" c="0.4"/>
+        <NODE t="0.2" v="50.0" c="0.0"/>
+      </ENV>
+      <ENV id="amp">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.008" v="1.0" c="0.0"/>
+        <NODE t="0.12" v="0.6" c="0.0"/>
+        <NODE t="0.2" v="0.0" c="-0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

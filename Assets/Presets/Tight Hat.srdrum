@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Tight Hat" category="Hats" type="Cymbal" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="2"/>
+    <PARAM id="cymbalMetalLevel" value="-14.0"/>
+    <PARAM id="cymbalNoiseLowCut" value="8000.0"/>
+    <ENVELOPES>
+      <ENV id="cymbalMetal">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.02" v="0.0" c="0.5"/>
+      </ENV>
+      <ENV id="cymbalNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.03" v="0.0" c="0.4"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

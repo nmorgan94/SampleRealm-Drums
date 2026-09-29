@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Tight Punch" category="Punchy" type="Kick" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="0"/>
+    <PARAM id="clickType" value="2"/>
+    <PARAM id="clickLevel" value="0.0"/>
+    <PARAM id="clickTone" value="5000.0"/>
+    <PARAM id="outputGain" value="-4.0"/>
+    <ENVELOPES>
+      <ENV id="pitch">
+        <NODE t="0.0" v="5000.0" c="0.0"/>
+        <NODE t="0.003" v="500.0" c="0.6"/>
+        <NODE t="0.02" v="110.0" c="0.5"/>
+        <NODE t="0.07" v="55.0" c="0.4"/>
+        <NODE t="0.15" v="49.0" c="0.0"/>
+      </ENV>
+      <ENV id="amp">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.005" v="1.0" c="0.0"/>
+        <NODE t="0.08" v="0.7" c="0.0"/>
+        <NODE t="0.15" v="0.0" c="-0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

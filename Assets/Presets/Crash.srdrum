@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Crash" category="Crashes" type="Cymbal" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="2"/>
+    <PARAM id="cymbalMetalLevel" value="-3.0"/>
+    <PARAM id="cymbalMetalTone" value="6000.0"/>
+    <PARAM id="cymbalMetalRing" value="50.0"/>
+    <PARAM id="cymbalNoiseLevel" value="-2.0"/>
+    <PARAM id="cymbalNoiseLowCut" value="3000.0"/>
+    <PARAM id="outputGain" value="-3.5"/>
+    <ENVELOPES>
+      <ENV id="cymbalMetal">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.2" v="0.6" c="0.3"/>
+        <NODE t="3.0" v="0.0" c="0.4"/>
+      </ENV>
+      <ENV id="cymbalNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.15" v="0.5" c="0.4"/>
+        <NODE t="2.5" v="0.0" c="0.4"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Neuro Kick" category="Hard" type="Kick" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="0"/>
+    <PARAM id="clickLevel" value="-6.0"/>
+    <PARAM id="driveType" value="1"/>
+    <PARAM id="driveAmount" value="50.0"/>
+    <PARAM id="clipAmount" value="40.0"/>
+    <PARAM id="eqMidGain" value="-3.0"/>
+    <PARAM id="eqHighGain" value="3.0"/>
+    <ENVELOPES>
+      <ENV id="pitch">
+        <NODE t="0.0" v="4000.0" c="0.0"/>
+        <NODE t="0.004" v="450.0" c="0.6"/>
+        <NODE t="0.03" v="110.0" c="0.5"/>
+        <NODE t="0.1" v="52.0" c="0.4"/>
+        <NODE t="0.25" v="46.25" c="0.0"/>
+      </ENV>
+      <ENV id="amp">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.006" v="1.0" c="0.0"/>
+        <NODE t="0.18" v="0.75" c="0.0"/>
+        <NODE t="0.28" v="0.0" c="-0.4"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

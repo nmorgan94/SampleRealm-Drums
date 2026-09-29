@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Rolling Snare" category="Snappy" type="Snare" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="1"/>
+    <PARAM id="snareNoiseLowCut" value="1200.0"/>
+    <PARAM id="snareSnapType" value="2"/>
+    <PARAM id="snareSnapTone" value="4000.0"/>
+    <PARAM id="driveAmount" value="30.0"/>
+    <PARAM id="clipAmount" value="30.0"/>
+    <ENVELOPES>
+      <ENV id="snarePitch">
+        <NODE t="0.0" v="450.0" c="0.0"/>
+        <NODE t="0.008" v="240.0" c="0.5"/>
+        <NODE t="0.05" v="205.0" c="0.3"/>
+        <NODE t="0.1" v="200.0" c="0.0"/>
+      </ENV>
+      <ENV id="snareBody">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.003" v="1.0" c="0.0"/>
+        <NODE t="0.1" v="0.0" c="0.6"/>
+      </ENV>
+      <ENV id="snareNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.06" v="0.4" c="0.5"/>
+        <NODE t="0.2" v="0.0" c="0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

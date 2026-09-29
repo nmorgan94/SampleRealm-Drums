@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Deep Sub" category="Sub" type="Kick" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="0"/>
+    <PARAM id="subHarmonics" value="10.0"/>
+    <PARAM id="clickLevel" value="-18.0"/>
+    <ENVELOPES>
+      <ENV id="pitch">
+        <NODE t="0.0" v="1500.0" c="0.0"/>
+        <NODE t="0.01" v="250.0" c="0.5"/>
+        <NODE t="0.06" v="70.0" c="0.5"/>
+        <NODE t="0.18" v="46.0" c="0.4"/>
+        <NODE t="0.4" v="43.65" c="0.0"/>
+      </ENV>
+      <ENV id="amp">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.015" v="1.0" c="0.0"/>
+        <NODE t="0.45" v="0.8" c="0.0"/>
+        <NODE t="0.7" v="0.0" c="-0.4"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

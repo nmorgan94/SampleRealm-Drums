@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Liquid Kick" category="Soft" type="Kick" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="0"/>
+    <PARAM id="clickType" value="1"/>
+    <PARAM id="clickLevel" value="-14.0"/>
+    <PARAM id="driveAmount" value="10.0"/>
+    <PARAM id="eqHighGain" value="-2.0"/>
+    <ENVELOPES>
+      <ENV id="pitch">
+        <NODE t="0.0" v="1500.0" c="0.0"/>
+        <NODE t="0.008" v="300.0" c="0.5"/>
+        <NODE t="0.05" v="90.0" c="0.5"/>
+        <NODE t="0.14" v="52.0" c="0.4"/>
+        <NODE t="0.3" v="49.0" c="0.0"/>
+      </ENV>
+      <ENV id="amp">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.012" v="1.0" c="0.0"/>
+        <NODE t="0.2" v="0.65" c="0.2"/>
+        <NODE t="0.3" v="0.0" c="-0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

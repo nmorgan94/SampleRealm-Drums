@@ -99,7 +99,7 @@ open build-debug/Drums_artefacts/Debug/Standalone/Drums.app
 
 ## Presets
 
-Factory presets are `.srdrum` files in `Assets/Presets/`. They're embedded into the plugin at build time along with everything else in `Assets/`. So far there are Closed Hat, Open Hat and Ride for the Cymbal.
+Factory presets are `.srdrum` files in `Assets/Presets/`. They're embedded into the plugin at build time along with everything else in `Assets/`.
 
 Each preset has a `type` attribute naming its instrument (`Kick`, `Snare` or `Cymbal`), and is only listed while that instrument is showing.
 
