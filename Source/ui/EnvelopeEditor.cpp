@@ -8,6 +8,8 @@ namespace srd
         constexpr float handleRadius = 3.0f;
         constexpr float hitRadius    = 8.0f;
         constexpr float curvePerPixel = 1.0f / 120.0f;
+        constexpr float curveHitDistance = 6.0f;
+        constexpr float legendDot = 8.0f, legendGap = 5.0f, legendSpacing = 14.0f;
 
         juce::String formatTime (float seconds)
         {
@@ -33,7 +35,7 @@ namespace srd
     //==============================================================================
     EnvelopeEditor::EnvelopeEditor (EnvelopeModel& m) : model (m)
     {
-        formatValue = formatGridValue = [] (float v) { return juce::String (v, 2); };
+        formatValue = formatGridValue = [] (std::size_t, float v) { return juce::String (v, 2); };
 
         setWantsKeyboardFocus (true);
         refresh();
@@ -45,6 +47,13 @@ namespace srd
         jassert (env < model.getNumEnvelopes());
         envelope = env;
         hover = drag = {};
+        refresh();
+    }
+
+    void EnvelopeEditor::setCurves (juce::Array<Curve> newCurves)
+    {
+        curves = std::move (newCurves);
+        hover = {};
         refresh();
     }
 
@@ -78,7 +87,14 @@ namespace srd
         for (int i = 0; i < model.getNumNodes (envelope); ++i)
             nodes.add (model.getNode (envelope, i));
 
-        if (hover.index >= nodes.size()) hover = {};
+        curveData.clearQuick();
+
+        for (const auto& curve : curves)
+            curveData.add (model.getData (curve.envelope));
+
+        if (hover.editsNode() && hover.index >= nodes.size())
+            hover = {};
+
         if (drag.index >= nodes.size())  drag = {};
 
         if (drag.target == Target::none)
@@ -89,7 +105,13 @@ namespace srd
 
     void EnvelopeEditor::updateView()
     {
-        const auto end = nodes.isEmpty() ? 0.0f : nodes.getLast().time * timeScale * 1.15f;
+        // Spans the longest curve shown, so choosing another doesn't rescale the view
+        auto last = nodes.isEmpty() ? 0.0f : nodes.getLast().time;
+
+        for (const auto& curve : curveData)
+            last = std::max (last, curve.getDuration());
+
+        const auto end = last * timeScale * 1.15f;
 
         for (auto seconds : { 0.05f, 0.1f, 0.15f, 0.2f, 0.3f, 0.4f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 6.0f })
         {
@@ -128,17 +150,17 @@ namespace srd
         return (x - plot.getX()) / plot.getWidth() * viewSeconds / timeScale;
     }
 
-    float EnvelopeEditor::domainToY (float domainValue) const
+    float EnvelopeEditor::domainToY (float domainValue, std::size_t env) const
     {
-        const auto& spec = model.getSpec (envelope);
+        const auto& spec = model.getSpec (env);
         const auto plot = getPlotArea();
-        return juce::jmap (domainValue, model.toDomain (envelope, spec.minValue), model.toDomain (envelope, spec.maxValue),
+        return juce::jmap (domainValue, model.toDomain (env, spec.minValue), model.toDomain (env, spec.maxValue),
                            plot.getBottom(), plot.getY());
     }
 
     float EnvelopeEditor::valueToY (float displayValue) const
     {
-        return domainToY (model.toDomain (envelope, displayValue));
+        return domainToY (model.toDomain (envelope, displayValue), envelope);
     }
 
     float EnvelopeEditor::yToValue (float y) const
@@ -160,7 +182,52 @@ namespace srd
     juce::Point<float> EnvelopeEditor::handlePosition (int index) const
     {
         const auto midTime = 0.5f * (nodes.getReference (index - 1).time + nodes.getReference (index).time);
-        return { timeToX (midTime), domainToY (evaluate (data, midTime)) };
+        return { timeToX (midTime), domainToY (evaluate (data, midTime), envelope) };
+    }
+
+    juce::Colour EnvelopeEditor::colourOf (std::size_t env) const
+    {
+        for (const auto& curve : curves)
+            if (curve.envelope == env)
+                return curve.colour;
+
+        return findColour (lineColourId);
+    }
+
+    /** Legend items sit in a row at the plot's top right, in curve order. */
+    juce::Rectangle<float> EnvelopeEditor::getLegendBounds (int curve) const
+    {
+        const auto plot = getPlotArea();
+        auto right = plot.getRight() - 8.0f;
+
+        for (int i = curves.size() - 1; i >= 0; --i)
+        {
+            const auto width = legendDot + legendGap + juce::GlyphArrangement::getStringWidth (font, curves.getReference (i).name);
+            const juce::Rectangle<float> item (right - width, plot.getY() + 6.0f, width, 16.0f);
+
+            if (i == curve)
+                return item;
+
+            right = item.getX() - legendSpacing;
+        }
+
+        return {};
+    }
+
+    /** One point per pixel up to the last node; callers draw the held tail. */
+    juce::Path EnvelopeEditor::curvePath (const EnvelopeData& curve, std::size_t env, juce::Rectangle<float> plot) const
+    {
+        juce::Path path;
+        EnvelopeCursor cursor;
+        const auto endX = std::min (timeToX (curve.getDuration()), plot.getRight());
+
+        path.startNewSubPath (plot.getX(), domainToY (cursor.getValue (curve, 0.0f), env));
+
+        for (auto x = plot.getX() + 1.0f; x <= endX; x += 1.0f)
+            path.lineTo (x, domainToY (cursor.getValue (curve, xToTime (x)), env));
+
+        path.lineTo (endX, domainToY (curve.getFinalValue(), env));
+        return path;
     }
 
     //==============================================================================
@@ -190,6 +257,57 @@ namespace srd
             }
         }
 
+        // The curve being edited wins; only a miss can choose another
+        if (best.target != Target::none)
+            return best;
+
+        if (hasLegend())
+            for (int i = 0; i < curves.size(); ++i)
+                if (getLegendBounds (i).expanded (4.0f).contains (position))
+                    return { Target::legend, i };
+
+        return findFadedCurve (position);
+    }
+
+    /** The faded curve nearest the point, within a few pixels, unless the curve being edited is nearer. */
+    EnvelopeEditor::Hit EnvelopeEditor::findFadedCurve (juce::Point<float> position) const
+    {
+        const auto plot = getPlotArea();
+
+        if (! plot.contains (position))
+            return {};
+
+        // Measured against the paths as drawn
+        const auto distanceTo = [position] (const juce::Path& path)
+        {
+            juce::Point<float> nearest;
+            path.getNearestPoint (position, nearest);
+            return position.getDistanceFrom (nearest);
+        };
+
+        // Clicks near the curve being edited, its held tail included, stay with it
+        auto active = curvePath (data, envelope, plot);
+        active.lineTo (plot.getRight(), active.getCurrentPosition().y);
+
+        Hit best;
+        auto bestDistance = std::min (curveHitDistance, distanceTo (active));
+
+        for (int i = 0; i < curves.size(); ++i)
+        {
+            const auto env = curves.getReference (i).envelope;
+            const auto& curve = curveData.getReference (i);
+
+            // Only the drawn curve up to its last node; the held tail isn't a target
+            if (env == envelope || curve.numNodes < 2)
+                continue;
+
+            if (const auto d = distanceTo (curvePath (curve, env, plot)); d < bestDistance)
+            {
+                best = { Target::curve, i };
+                bestDistance = d;
+            }
+        }
+
         return best;
     }
 
@@ -201,7 +319,8 @@ namespace srd
         hover = newHover;
         setMouseCursor (hover.target == Target::node   ? juce::MouseCursor::DraggingHandCursor
                       : hover.target == Target::handle ? juce::MouseCursor::UpDownResizeCursor
-                                                       : juce::MouseCursor::NormalCursor);
+                      : hover.target == Target::none   ? juce::MouseCursor::NormalCursor
+                                                       : juce::MouseCursor::PointingHandCursor);
         repaint();
     }
 
@@ -209,7 +328,7 @@ namespace srd
     {
         const auto& target = drag.target != Target::none ? drag : hover;
 
-        if (target.target == Target::none)
+        if (! target.editsNode())
             return {};
 
         const auto& node = nodes.getReference (target.index);
@@ -217,7 +336,7 @@ namespace srd
         if (target.target == Target::handle)
             return "Curve " + juce::String (node.curve, 2);
 
-        return formatTime (node.time * timeScale) + "   " + formatValue (node.value);
+        return formatTime (node.time * timeScale) + "   " + formatValue (envelope, node.value);
     }
 
     //==============================================================================
@@ -236,9 +355,18 @@ namespace srd
         grabKeyboardFocus();
 
         const auto hit = findTarget (e.position);
+        // The second click of a double-click keeps the first click's answer
+        if (e.getNumberOfClicks() == 1)
+            choseOnMouseDown = hit.choosesCurve();
 
         if (hit.target == Target::none)
             return;
+
+        if (hit.choosesCurve())
+        {
+            setEnvelope (curves.getReference (hit.index).envelope);
+            return;
+        }
 
         model.getUndoManager().beginNewTransaction();
 
@@ -288,7 +416,12 @@ namespace srd
 
     void EnvelopeEditor::mouseDoubleClick (const juce::MouseEvent& e)
     {
+        // The first click chose this curve, so the second shouldn't also edit it
+        if (choseOnMouseDown)
+            return;
+
         const auto hit = findTarget (e.position);
+
         model.getUndoManager().beginNewTransaction();
 
         if (hit.target == Target::node)
@@ -339,18 +472,23 @@ namespace srd
         }
 
         drawGrid (g, plot);
+        drawFadedCurves (g, plot);
 
-        if (nodes.size() < 2)
-            return;
+        if (nodes.size() >= 2)
+        {
+            drawCurve (g, plot);
+            drawNodes (g);
+        }
 
-        drawCurve (g, plot);
-        drawNodes (g);
+        drawLegend (g);
 
+        // Below the legend when there is one
         if (const auto text = readoutText(); text.isNotEmpty())
         {
             g.setColour (findColour (readoutColourId));
             g.setFont (font);
-            g.drawText (text, plot.reduced (8.0f, 6.0f), juce::Justification::topRight);
+            const auto top = hasLegend() ? getLegendBounds (0).getBottom() + 4.0f : plot.getY() + 6.0f;
+            g.drawText (text, plot.reduced (8.0f, 0.0f).withTop (top), juce::Justification::topRight);
         }
     }
 
@@ -401,7 +539,7 @@ namespace srd
             g.setColour (gridColour);
             g.drawHorizontalLine (juce::roundToInt (y), plot.getX(), plot.getRight());
             g.setColour (textColour);
-            g.drawText (formatGridValue (v), juce::Rectangle<float> (0.0f, y - 7.0f, plot.getX() - 6.0f, 14.0f),
+            g.drawText (formatGridValue (envelope, v), juce::Rectangle<float> (0.0f, y - 7.0f, plot.getX() - 6.0f, 14.0f),
                         juce::Justification::centredRight);
         }
     }
@@ -411,20 +549,9 @@ namespace srd
         const juce::Graphics::ScopedSaveState state (g);
         g.reduceClipRegion (plot.toNearestInt());
 
-        const auto colour = findColour (lineColourId);
-        const auto endX = std::min (timeToX (nodes.getLast().time), plot.getRight());
-
-        // One point per pixel up to the last node; the tail holds the final value
-        juce::Path curve;
-        EnvelopeCursor cursor;
-
-        curve.startNewSubPath (nodePosition (0));
-
-        for (auto x = plot.getX() + 1.0f; x <= endX; x += 1.0f)
-            curve.lineTo (x, domainToY (cursor.getValue (data, xToTime (x))));
-
-        const auto end = nodePosition (nodes.size() - 1);
-        curve.lineTo (std::min (end.x, plot.getRight()), end.y);
+        const auto colour = colourOf (envelope);
+        const auto curve = curvePath (data, envelope, plot);
+        const auto end = curve.getCurrentPosition();
 
         auto fill = curve;
         fill.lineTo (curve.getCurrentPosition().x, plot.getBottom());
@@ -438,16 +565,13 @@ namespace srd
         g.setColour (colour);
         g.strokePath (curve, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        if (end.x < plot.getRight())
-        {
-            g.setColour (colour.withAlpha (0.35f));
-            g.drawLine (end.x, end.y, plot.getRight(), end.y, 1.5f);
-        }
+        g.setColour (colour.withAlpha (0.35f));
+        g.drawLine (end.x, end.y, plot.getRight(), end.y, 1.5f);
     }
 
     void EnvelopeEditor::drawNodes (juce::Graphics& g) const
     {
-        const auto lineColour = findColour (lineColourId);
+        const auto lineColour = colourOf (envelope);
         const auto nodeColour = findColour (nodeColourId);
 
         const auto isActive = [this] (Target target, int index)
@@ -475,6 +599,59 @@ namespace srd
             g.fillEllipse (bounds);
             g.setColour (lineColour);
             g.drawEllipse (bounds, 1.5f);
+        }
+    }
+
+    void EnvelopeEditor::drawFadedCurves (juce::Graphics& g, juce::Rectangle<float> plot) const
+    {
+        const juce::Graphics::ScopedSaveState state (g);
+        g.reduceClipRegion (plot.toNearestInt());
+
+        for (int i = 0; i < curves.size(); ++i)
+        {
+            const auto& curve = curves.getReference (i);
+            const auto& curveValues = curveData.getReference (i);
+
+            if (curve.envelope == envelope || curveValues.numNodes < 2)
+                continue;
+
+            const auto hovered = hover.choosesCurve() && hover.index == i;
+            const auto path = curvePath (curveValues, curve.envelope, plot);
+            const auto end = path.getCurrentPosition();
+
+            g.setColour (curve.colour.withAlpha (hovered ? 0.8f : 0.35f));
+            g.strokePath (path, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.drawLine (end.x, end.y, plot.getRight(), end.y, 1.0f);
+        }
+    }
+
+    void EnvelopeEditor::drawLegend (juce::Graphics& g) const
+    {
+        if (! hasLegend())
+            return;
+
+        g.setFont (font);
+
+        for (int i = 0; i < curves.size(); ++i)
+        {
+            const auto& curve = curves.getReference (i);
+            const auto active = curve.envelope == envelope;
+            const auto hovered = hover.choosesCurve() && hover.index == i;
+
+            auto item = getLegendBounds (i);
+            const auto dot = item.removeFromLeft (legendDot).withSizeKeepingCentre (legendDot, legendDot);
+            item.removeFromLeft (legendGap);
+
+            // Filled for the curve being edited, hollow for the rest
+            g.setColour (curve.colour);
+
+            if (active)
+                g.fillEllipse (dot);
+            else
+                g.drawEllipse (dot.reduced (0.75f), 1.5f);
+
+            g.setColour (findColour (active || hovered ? readoutColourId : gridTextColourId));
+            g.drawText (curve.name, item, juce::Justification::centredLeft);
         }
     }
 }

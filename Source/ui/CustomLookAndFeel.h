@@ -21,6 +21,7 @@ public:
         static inline const juce::Colour textDim    { 0xff7d8595 };
         static inline const juce::Colour accent     { 0xffff6a2b }; // pitch, knob arcs
         static inline const juce::Colour accentAlt  { 0xff38d5f2 }; // amp
+        static inline const juce::Colour accentAlt2 { 0xffb48cff }; // a second level curve, e.g. noise
         static inline const juce::Colour waveform   { 0xff4a5263 };
         static inline const juce::Colour clip       { 0xffff3d4a }; // level meter over 0 dB
     };

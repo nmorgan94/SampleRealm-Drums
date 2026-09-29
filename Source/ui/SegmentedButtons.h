@@ -30,12 +30,10 @@ namespace srd
                 addAndMakeVisible (button);
             }
 
-            applySelectedColour();
             setSelectedIndex (juce::jlimit (0, juce::jmax (0, newItems.size() - 1), selected));
             resized();
         }
 
-        int getNumItems() const noexcept                        { return buttons.size(); }
         int getSelectedIndex() const noexcept                   { return selected; }
 
         void setSelectedIndex (int index, juce::NotificationType notification = juce::dontSendNotification)
@@ -47,12 +45,6 @@ namespace srd
 
             if (notification != juce::dontSendNotification && onChange != nullptr)
                 onChange (index);
-        }
-
-        void setSelectedColour (juce::Colour colour)
-        {
-            selectedColour = colour;
-            applySelectedColour();
         }
 
         std::function<void (int)> onChange;
@@ -71,15 +63,7 @@ namespace srd
 
     private:
         juce::OwnedArray<juce::TextButton> buttons;
-        std::optional<juce::Colour> selectedColour;
         int selected = 0;
-
-        void applySelectedColour()
-        {
-            if (selectedColour.has_value())
-                for (auto* button : buttons)
-                    button->setColour (juce::TextButton::buttonOnColourId, *selectedColour);
-        }
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SegmentedButtons)
     };

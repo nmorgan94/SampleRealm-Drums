@@ -11,32 +11,29 @@ namespace
 
     using Palette = CustomLookAndFeel::Palette;
 
-    struct EnvelopeTab
-    {
-        const char* name;
-        std::size_t envelope;
-    };
+    using Curve = srd::EnvelopeEditor::Curve;
 
-    const juce::Array<EnvelopeTab> kickTabs  { EnvelopeTab { "Pitch", DrumEnvelopes::kickPitch },
-                                               EnvelopeTab { "Amp",   DrumEnvelopes::kickAmp } };
+    // The first curve is the one shown when switching to the instrument
+    const juce::Array<Curve> kickCurves  { Curve { DrumEnvelopes::kickPitch, "Pitch", Palette::accent },
+                                           Curve { DrumEnvelopes::kickAmp,   "Amp",   Palette::accentAlt } };
 
-    const juce::Array<EnvelopeTab> snareTabs { EnvelopeTab { "Pitch", DrumEnvelopes::snarePitch },
-                                               EnvelopeTab { "Body",  DrumEnvelopes::snareBody },
-                                               EnvelopeTab { "Noise", DrumEnvelopes::snareNoise } };
+    const juce::Array<Curve> snareCurves { Curve { DrumEnvelopes::snarePitch, "Pitch", Palette::accent },
+                                           Curve { DrumEnvelopes::snareBody,  "Body",  Palette::accentAlt },
+                                           Curve { DrumEnvelopes::snareNoise, "Noise", Palette::accentAlt2 } };
 
-    const juce::Array<EnvelopeTab> cymbalTabs { EnvelopeTab { "Metal", DrumEnvelopes::cymbalMetal },
-                                                EnvelopeTab { "Noise", DrumEnvelopes::cymbalNoise } };
+    const juce::Array<Curve> cymbalCurves { Curve { DrumEnvelopes::cymbalMetal, "Metal", Palette::accentAlt },
+                                            Curve { DrumEnvelopes::cymbalNoise, "Noise", Palette::accentAlt2 } };
 
-    const juce::Array<EnvelopeTab>& getEnvelopeTabs (Parameters::Instrument instrument)
+    const juce::Array<Curve>& getCurves (Parameters::Instrument instrument)
     {
         switch (instrument)
         {
-            case Parameters::Instrument::snare:  return snareTabs;
-            case Parameters::Instrument::cymbal: return cymbalTabs;
+            case Parameters::Instrument::snare:  return snareCurves;
+            case Parameters::Instrument::cymbal: return cymbalCurves;
             case Parameters::Instrument::kick:   break;
         }
 
-        return kickTabs;
+        return kickCurves;
     }
 
     /** Nearest note, with middle C as C4 (so 43.65 Hz is F1). */
@@ -56,8 +53,26 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     addAndMakeVisible (presetBar);
     addAndMakeVisible (outputMeter);
 
-    envelopeTabs.onChange = [this] (int index) { showEnvelope (getEnvelopeTabs (getInstrument())[index].envelope); };
-    addAndMakeVisible (envelopeTabs);
+    // Pitch envelopes read in Hz and note names, level envelopes as percentages
+    const auto isPitch = [this] (std::size_t env)
+    {
+        return processorRef.getEnvelopeModel().getSpec (env).scale == srd::EnvelopeSpec::Scale::logarithmic;
+    };
+
+    const auto percent = [] (float gain) { return juce::String (juce::roundToInt (gain * 100.0f)) + "%"; };
+
+    envelopeEditor.formatValue = [isPitch, percent] (std::size_t env, float value)
+    {
+        return isPitch (env) ? srd::params::hertzText (value) + "  " + noteName (value) : percent (value);
+    };
+
+    envelopeEditor.formatGridValue = [isPitch, percent] (std::size_t env, float value)
+    {
+        if (! isPitch (env))
+            return percent (value);
+
+        return value >= 1000.0f ? juce::String (juce::roundToInt (value / 1000.0f)) + "k" : juce::String (juce::roundToInt (value));
+    };
 
     envelopeEditor.setFont (customLookAndFeel.font (11.0f));
     envelopeEditor.paintBackground = [this] (juce::Graphics& g, juce::Rectangle<float> area)
@@ -130,7 +145,7 @@ Parameters::Instrument AudioPluginAudioProcessorEditor::getInstrument() const
     return Parameters::instrumentFromIndex (instrumentSwitch.getSelectedIndex());
 }
 
-/** Swaps in the instrument's sound panels and envelope tabs, keeping the same tab where it has one. */
+/** Swaps in the instrument's sound panels and envelope curves, editing its first curve. */
 void AudioPluginAudioProcessorEditor::showInstrument()
 {
     const auto instrument = getInstrument();
@@ -152,13 +167,9 @@ void AudioPluginAudioProcessorEditor::showInstrument()
         control->setAlpha (hasPitch ? 1.0f : 0.35f);
     }
 
-    juce::StringArray tabNames;
-
-    for (const auto& tab : getEnvelopeTabs (instrument))
-        tabNames.add (tab.name);
-
-    envelopeTabs.setItems (tabNames);
-    showEnvelope (getEnvelopeTabs (instrument)[envelopeTabs.getSelectedIndex()].envelope);
+    const auto& curves = getCurves (instrument);
+    envelopeEditor.setCurves (curves);
+    envelopeEditor.setEnvelope (curves.getFirst().envelope);
 
     parametersChanged = true;
     resized();
@@ -174,33 +185,6 @@ juce::Array<srd::Panel*> AudioPluginAudioProcessorEditor::getSoundPanels (Parame
     }
 
     return { &subPanel, &clickPanel, &drivePanel, &eqPanel, &outputPanel };
-}
-
-void AudioPluginAudioProcessorEditor::showEnvelope (std::size_t env)
-{
-    const auto isPitch = processorRef.getEnvelopeModel().getSpec (env).scale == srd::EnvelopeSpec::Scale::logarithmic;
-
-    envelopeEditor.setEnvelope (env);
-    // Pitch in the main accent, gain in the other, on both the tab and the curve
-    const auto colour = isPitch ? Palette::accent : Palette::accentAlt;
-    envelopeTabs.setSelectedColour (colour);
-    envelopeEditor.setColour (srd::EnvelopeEditor::lineColourId, colour);
-
-    if (isPitch)
-    {
-        envelopeEditor.formatValue = [] (float hz) { return srd::params::hertzText (hz) + "  " + noteName (hz); };
-        envelopeEditor.formatGridValue = [] (float hz)
-        {
-            return hz >= 1000.0f ? juce::String (juce::roundToInt (hz / 1000.0f)) + "k" : juce::String (juce::roundToInt (hz));
-        };
-    }
-    else
-    {
-        envelopeEditor.formatValue = envelopeEditor.formatGridValue = [] (float gain)
-        {
-            return juce::String (juce::roundToInt (gain * 100.0f)) + "%";
-        };
-    }
 }
 
 /** Re-renders the waveform when the sound, the note or the view changes, and updates the tail readout. */
@@ -331,7 +315,7 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     }
 
     // Envelope panel
-    const auto envelopeArea = envelopeEditor.getBounds().getUnion (envelopeTabs.getBounds()).expanded (8).toFloat();
+    const auto envelopeArea = envelopeEditor.getBounds().expanded (8).toFloat();
     g.setColour (Palette::panel);
     g.fillRoundedRectangle (envelopeArea, 6.0f);
     g.setColour (Palette::outline);
@@ -365,8 +349,5 @@ void AudioPluginAudioProcessorEditor::resized()
     triggerPad.setBounds (right);
 
     // Envelope editor fills the rest, inside its panel
-    auto envelope = bounds.withTrimmedRight (gap + 8).reduced (8);
-    envelopeTabs.setBounds (envelope.removeFromTop (24).removeFromLeft (70 * envelopeTabs.getNumItems()));
-    envelope.removeFromTop (4);
-    envelopeEditor.setBounds (envelope);
+    envelopeEditor.setBounds (bounds.withTrimmedRight (gap + 8).reduced (8));
 }

@@ -41,8 +41,7 @@ private:
     juce::String tailNote, tailHz;
     juce::Rectangle<int> titleArea, readoutArea;
 
-    // Envelopes, drawn over a preview of one hit. The tabs are relabelled per instrument
-    srd::SegmentedButtons envelopeTabs;
+    // The instrument's envelopes, drawn together over a preview of one hit
     srd::EnvelopeEditor envelopeEditor { processorRef.getEnvelopeModel() };
     srd::Waveform waveform;
     PreviewRenderer renderer;
@@ -119,7 +118,6 @@ private:
 
     Parameters::Instrument getInstrument() const;
     void showInstrument();
-    void showEnvelope (std::size_t env);
     juce::Array<srd::Panel*> getSoundPanels (Parameters::Instrument);
 
     void updatePreview();
