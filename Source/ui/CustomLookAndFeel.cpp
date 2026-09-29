@@ -1,5 +1,6 @@
 #include "CustomLookAndFeel.h"
 #include "EnvelopeEditor.h"
+#include "LevelMeter.h"
 #include "Panel.h"
 #include "PromptOverlay.h"
 #include "TriggerPad.h"
@@ -44,6 +45,10 @@ CustomLookAndFeel::CustomLookAndFeel()
         { srd::TriggerPad::backgroundColourId,           P::raised },
         { srd::TriggerPad::flashColourId,                P::accent },
         { srd::TriggerPad::textColourId,                 P::text },
+        { srd::LevelMeter::backgroundColourId,           P::panel },
+        { srd::LevelMeter::outlineColourId,              P::outline },
+        { srd::LevelMeter::barColourId,                  P::accentAlt },
+        { srd::LevelMeter::clipColourId,                 P::clip },
 
         { srd::PromptOverlay::dimColourId,               P::background.withAlpha (0.75f) },
         { srd::PromptOverlay::panelColourId,             P::panel },

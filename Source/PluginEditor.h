@@ -5,6 +5,7 @@
 #include "ui/Controls.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/EnvelopeEditor.h"
+#include "ui/LevelMeter.h"
 #include "ui/Panel.h"
 #include "ui/PresetBar.h"
 #include "ui/PromptOverlay.h"
@@ -36,6 +37,7 @@ private:
     srd::PromptOverlay prompt;
     srd::ChoiceButtons instrumentSwitch { apvts, Parameters::instrumentId };
     srd::PresetBar presetBar { processorRef.getPresetManager(), prompt };
+    srd::LevelMeter outputMeter { processorRef.getOutputMeter() };
     juce::String tailNote, tailHz;
     juce::Rectangle<int> titleArea, readoutArea;
 

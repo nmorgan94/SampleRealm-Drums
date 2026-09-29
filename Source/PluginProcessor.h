@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters.h"
 #include "dsp/EnvelopeModel.h"
+#include "dsp/PeakMeter.h"
 #include "dsp/VoicePool.h"
 #include "engine/DrumEnvelopes.h"
 #include "engine/EngineParams.h"
@@ -54,6 +55,7 @@ public:
     srd::EnvelopeModel& getEnvelopeModel()              { return envelopeModel; }
     srd::PresetManager& getPresetManager()              { return presetManager; }
     EngineParams& getEngineParams()                     { return engineParams; }
+    srd::PeakMeter& getOutputMeter()                    { return outputMeter; }
 
     /** Replays the last note played on the next audio block. */
     void triggerAudition() noexcept                     { auditionPending = true; }
@@ -76,6 +78,7 @@ private:
     srd::VoicePool<SnareVoice, 4> snareVoices;
     srd::VoicePool<CymbalVoice, 4> cymbalVoices;
     FxChain fxChain;
+    srd::PeakMeter outputMeter;
 
     srd::EnvelopeModel::Snapshot envelopes;
     juce::uint32 envelopeVersion = 0;

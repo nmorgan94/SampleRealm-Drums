@@ -54,6 +54,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     // Top bar
     addAndMakeVisible (instrumentSwitch);
     addAndMakeVisible (presetBar);
+    addAndMakeVisible (outputMeter);
 
     envelopeTabs.onChange = [this] (int index) { showEnvelope (getEnvelopeTabs (getInstrument())[index].envelope); };
     addAndMakeVisible (envelopeTabs);
@@ -345,6 +346,8 @@ void AudioPluginAudioProcessorEditor::resized()
     auto top = bounds.removeFromTop (44);
     titleArea = top.removeFromLeft (150);
     instrumentSwitch.setBounds (top.removeFromLeft (220).withSizeKeepingCentre (220, 30));
+    outputMeter.setBounds (top.removeFromRight (14).withSizeKeepingCentre (14, 40));
+    top.removeFromRight (10);
     readoutArea = top.removeFromRight (150);
     presetBar.setBounds (top.withSizeKeepingCentre (std::min (top.getWidth() - 24, 460), 30));
 

@@ -243,6 +243,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     renderVoices (mono, position, numSamples);
     fxChain.process (mono, numSamples);
+    outputMeter.process (mono, numSamples);
 
     for (int channel = 1; channel < buffer.getNumChannels(); ++channel)
         buffer.copyFrom (channel, 0, mono, numSamples);
