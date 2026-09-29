@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Closed Hat" category="Hats" type="Cymbal" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="2"/>
+  </Parameters>
+</PRESET>

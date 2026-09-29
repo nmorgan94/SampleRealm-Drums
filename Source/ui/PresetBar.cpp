@@ -48,14 +48,14 @@ namespace srd
     {
         presets.refreshUserPresets();
 
-        auto all = presets.getAllPresets();
+        auto presetList = presets.getPresets();
         const auto current = presets.getCurrent();
 
         const auto makeItem = [&] (int index)
         {
-            juce::PopupMenu::Item item (all.getReference (index).name);
+            juce::PopupMenu::Item item (presetList.getReference (index).name);
             item.itemID = index + 1;
-            item.isTicked = current.matches (all.getReference (index));
+            item.isTicked = current.matches (presetList.getReference (index));
             return item;
         };
 
@@ -64,9 +64,9 @@ namespace srd
         juce::String currentCategory;
         juce::Array<int> userIndices;
 
-        for (int i = 0; i < all.size(); ++i)
+        for (int i = 0; i < presetList.size(); ++i)
         {
-            const auto& preset = all.getReference (i);
+            const auto& preset = presetList.getReference (i);
 
             if (! preset.isFactory)
             {
@@ -88,6 +88,9 @@ namespace srd
         for (auto& [category, subMenu] : categories)
             menu.addSubMenu (category, subMenu, true, nullptr, category == currentCategory);
 
+        if (categories.empty())
+            menu.addItem ("No factory presets yet", false, false, nullptr);
+
         menu.addSectionHeader ("User");
 
         for (auto i : userIndices)
@@ -97,7 +100,7 @@ namespace srd
             menu.addItem ("No user presets yet", false, false, nullptr);
 
         menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (nameButton),
-                            [safeThis = juce::Component::SafePointer (this), listed = std::move (all)] (int result)
+                            [safeThis = juce::Component::SafePointer (this), listed = std::move (presetList)] (int result)
                             {
                                 if (safeThis != nullptr && result > 0)
                                     safeThis->presets.loadPreset (listed.getReference (result - 1));
@@ -110,6 +113,8 @@ namespace srd
 
         juce::PopupMenu menu;
         menu.setLookAndFeel (&getLookAndFeel());
+        menu.addItem ("Init Preset", [this] { presets.loadInit(); });
+        menu.addSeparator();
         menu.addItem ("Save As...", [this] { saveAs(); });
         menu.addItem ("Rename...", user.has_value(), false, [this, user] { rename (*user); });
         menu.addItem ("Delete", user.has_value(), false, [this, user] { remove (*user); });

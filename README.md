@@ -65,6 +65,8 @@ Shared by all three instruments:
 
 ### Presets
 - Factory presets built into the plugin
+- The browser and ◀ ▶ show only the current instrument's presets
+- **Init Preset** in the ⋯ menu resets the sound to its defaults, keeping the instrument
 - Save, rename and delete your own presets
 - Presets store the envelope curves as well as the parameters
 - The preset name and unsaved-changes marker are restored with your DAW session
@@ -97,16 +99,17 @@ open build-debug/Drums_artefacts/Debug/Standalone/Drums.app
 
 ## Presets
 
-Factory presets are `.srkick` files in `Assets/Presets/`. They're embedded into the plugin at build time along with everything else in `Assets/`.
+Factory presets are `.srdrum` files in `Assets/Presets/`. They're embedded into the plugin at build time along with everything else in `Assets/`. So far there are Closed Hat, Open Hat and Ride for the Cymbal.
+
+Each preset has a `type` attribute naming its instrument (`Kick`, `Snare` or `Cymbal`), and is only listed while that instrument is showing.
 
 To add one:
-1. Design the sound in the plugin and save it as a user preset.
+1. Design the sound in the plugin and save it as a user preset. Its type is set from the instrument you saved it on.
 2. Copy the file from the user folder into `Assets/Presets/`.
 3. Reconfigure and rebuild.
 
 User presets are saved to:
 - **macOS**: `~/Library/Application Support/SampleRealm/Drums/Presets/`
-- **Windows**: `%APPDATA%\SampleRealm\Drums\Presets\`
 
 A preset is the plugin's full state, parameters plus envelope curves, stored as XML. If a preset doesn't include a parameter, that parameter loads at its default, so older presets keep working as parameters are added.
 

@@ -18,11 +18,14 @@ namespace srd
             juce::String author;
             int formatVersion = 1;
             std::vector<juce::MemoryBlock> factoryPresets;
+
+            // Only presets of the current type (or none) are listed, and Init keeps it
+            juce::String typeParameterId;
         };
 
         struct Preset
         {
-            juce::String name, category;
+            juce::String name, category, type;
             bool isFactory = false;
             std::size_t factoryIndex = 0; // into Config::factoryPresets
             juce::File file;              // user presets only
@@ -49,9 +52,13 @@ namespace srd
         /** Rescans the user folder. Save, rename and delete do this automatically; call it
             before showing a preset list to pick up files changed outside the plugin. */
         void refreshUserPresets();
-        juce::Array<Preset> getAllPresets() const;
+
+        /** Factory then user presets, only of the current type when types are in use. */
+        juce::Array<Preset> getPresets() const;
         juce::File getUserDirectory() const                             { return config.userDirectory; }
 
+        /** Resets everything but the type parameter to defaults, named "Init". */
+        void loadInit();
         bool loadPreset (const Preset&);
         bool loadNext();
         bool loadPrevious();
@@ -96,6 +103,7 @@ namespace srd
         juce::File getUserFile (const juce::String& name) const;
         juce::Result checkUserName (const juce::String& trimmedName) const;
         void scanUserPresets() const;
+        juce::String getCurrentType() const;
         std::unique_ptr<juce::XmlElement> createPresetXml (const juce::String& name, const juce::String& category) const;
         void setCurrent (const CurrentPreset&, bool isModified);
         bool step (int delta);

@@ -20,10 +20,13 @@ AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 srd::PresetManager::Config AudioPluginAudioProcessor::createPresetConfig()
 {
     srd::PresetManager::Config config;
-    config.fileExtension = ".srkick";
+    config.fileExtension = ".srdrum";
     config.userDirectory = srd::PresetManager::getDefaultUserDirectory (JucePlugin_Manufacturer, JucePlugin_Name);
     config.author        = JucePlugin_Manufacturer;
     config.formatVersion = Parameters::versionHint;
+
+    // Presets are typed by instrument, and Init keeps the instrument you're on
+    config.typeParameterId = Parameters::instrumentId.getParamID();
 
     // Factory presets are embedded from Assets/Presets alongside the fonts
     for (int i = 0; i < BinaryData::namedResourceListSize; ++i)

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Open Hat" category="Hats" type="Cymbal" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="2"/>
+    <PARAM id="cymbalMetalLevel" value="-3.0"/>
+    <ENVELOPES>
+      <ENV id="cymbalMetal">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.45" v="0.0" c="0.5"/>
+      </ENV>
+      <ENV id="cymbalNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.03" v="0.4" c="0.4"/>
+        <NODE t="0.35" v="0.0" c="0.3"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

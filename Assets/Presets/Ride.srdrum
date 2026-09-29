@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Ride" category="Rides" type="Cymbal" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="instrument" value="2"/>
+    <PARAM id="cymbalMetalLevel" value="0.0"/>
+    <PARAM id="cymbalMetalTone" value="5000.0"/>
+    <PARAM id="cymbalMetalRing" value="70.0"/>
+    <PARAM id="cymbalNoiseLevel" value="-8.0"/>
+    <PARAM id="cymbalNoiseLowCut" value="4000.0"/>
+    <ENVELOPES>
+      <ENV id="cymbalMetal">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.3" v="0.5" c="0.4"/>
+        <NODE t="2.5" v="0.0" c="0.3"/>
+      </ENV>
+      <ENV id="cymbalNoise">
+        <NODE t="0.0" v="1.0" c="0.0"/>
+        <NODE t="0.06" v="0.0" c="0.5"/>
+      </ENV>
+    </ENVELOPES>
+  </Parameters>
+</PRESET>

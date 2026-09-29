@@ -7,6 +7,7 @@ namespace srd
         const juce::Identifier presetTag      { "PRESET" };
         const juce::Identifier nameAttr       { "name" };
         const juce::Identifier categoryAttr   { "category" };
+        const juce::Identifier typeAttr       { "type" };
         const juce::Identifier authorAttr     { "author" };
         const juce::Identifier versionAttr    { "formatVersion" };
 
@@ -36,7 +37,7 @@ namespace srd
         {
             // Only the outer element is parsed, which holds the metadata but not the whole state
             if (auto xml = juce::XmlDocument (config.factoryPresets[i].toString()).getDocumentElement (true); xml != nullptr && xml->hasTagName (presetTag.toString()))
-                factoryPresets.add ({ xml->getStringAttribute (nameAttr), xml->getStringAttribute (categoryAttr), true, i, {} });
+                factoryPresets.add ({ xml->getStringAttribute (nameAttr), xml->getStringAttribute (categoryAttr), xml->getStringAttribute (typeAttr), true, i, {} });
             else
                 jassertfalse; // a factory preset failed to parse
         }
@@ -84,11 +85,14 @@ namespace srd
 
         for (const auto& file : config.userDirectory.findChildFiles (juce::File::findFiles, false, "*" + config.fileExtension))
         {
-            Preset preset { file.getFileNameWithoutExtension(), {}, false, 0, file };
+            Preset preset { file.getFileNameWithoutExtension(), {}, {}, false, 0, file };
 
             // Only the outer element is parsed, which holds the metadata but not the whole state
             if (auto xml = juce::XmlDocument (file).getDocumentElement (true); xml != nullptr && xml->hasTagName (presetTag.toString()))
+            {
                 preset.category = xml->getStringAttribute (categoryAttr);
+                preset.type = xml->getStringAttribute (typeAttr);
+            }
 
             userPresets.add (preset);
         }
@@ -96,11 +100,21 @@ namespace srd
         sortPresets (userPresets);
     }
 
-    juce::Array<PresetManager::Preset> PresetManager::getAllPresets() const
+    juce::String PresetManager::getCurrentType() const
     {
-        auto all = factoryPresets;
-        all.addArray (getUserPresets());
-        return all;
+        const auto* param = apvts.getParameter (config.typeParameterId);
+        return param != nullptr ? param->getCurrentValueAsText() : juce::String();
+    }
+
+    juce::Array<PresetManager::Preset> PresetManager::getPresets() const
+    {
+        auto presets = factoryPresets;
+        presets.addArray (getUserPresets());
+
+        if (const auto type = getCurrentType(); type.isNotEmpty())
+            presets.removeIf ([&type] (const Preset& p) { return p.type.isNotEmpty() && p.type != type; });
+
+        return presets;
     }
 
     juce::File PresetManager::getUserFile (const juce::String& name) const
@@ -129,6 +143,19 @@ namespace srd
     }
 
     //==============================================================================
+    void PresetManager::loadInit()
+    {
+        // Anything missing from the state loads at its default, so only the kept parameters go in
+        juce::ValueTree state (apvts.state.getType());
+
+        // Read live: the state tree only catches up with parameter changes on a timer
+        if (const auto* value = apvts.getRawParameterValue (config.typeParameterId))
+            state.appendChild ({ "PARAM", { { "id", config.typeParameterId }, { "value", value->load() } } }, nullptr);
+
+        restoreState (state);
+        setCurrent ({}, false);
+    }
+
     bool PresetManager::loadPreset (const Preset& preset)
     {
         std::unique_ptr<juce::XmlElement> xml;
@@ -155,18 +182,19 @@ namespace srd
 
     bool PresetManager::step (int delta)
     {
-        const auto all = getAllPresets();
+        const auto presets = getPresets();
 
-        if (all.isEmpty())
+        if (presets.isEmpty())
             return false;
 
         const auto now = getCurrent();
 
-        for (int i = 0; i < all.size(); ++i)
-            if (now.matches (all[i]))
-                return loadPreset (all[juce::negativeAwareModulo (i + delta, all.size())]);
+        for (int i = 0; i < presets.size(); ++i)
+            if (now.matches (presets[i]))
+                return loadPreset (presets[juce::negativeAwareModulo (i + delta, presets.size())]);
 
-        return loadPreset (delta > 0 ? all.getFirst() : all.getLast());
+        // Not in this list (after Init, or another type's preset): start from either end
+        return loadPreset (delta > 0 ? presets.getFirst() : presets.getLast());
     }
 
     bool PresetManager::loadNext()      { return step (1); }
@@ -179,6 +207,10 @@ namespace srd
         auto xml = std::make_unique<juce::XmlElement> (presetTag);
         xml->setAttribute (nameAttr, name);
         xml->setAttribute (categoryAttr, category);
+
+        if (const auto type = getCurrentType(); type.isNotEmpty())
+            xml->setAttribute (typeAttr, type);
+
         xml->setAttribute (authorAttr, config.author);
         xml->setAttribute (versionAttr, config.formatVersion);
 
@@ -275,7 +307,7 @@ namespace srd
     {
         const auto now = getCurrent();
 
-        for (const auto& preset : getAllPresets())
+        for (const auto& preset : getPresets())
             if (now.matches (preset))
                 return preset;
 
