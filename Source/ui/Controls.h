@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "LabeledSlider.h"
 #include "SegmentedButtons.h"
 
 //==============================================================================
@@ -19,47 +20,32 @@ namespace srd
             return *param;
         }
 
-        /** Shows labelText, or the parameter's name if that's empty. */
+        /** labelText, or the parameter's name if that's empty. */
+        inline juce::String labelFor (const juce::RangedAudioParameter& param, const juce::String& labelText)
+        {
+            return labelText.isNotEmpty() ? labelText : param.getName (32);
+        }
+
         inline void initLabel (juce::Label& label, const juce::RangedAudioParameter& param, const juce::String& labelText)
         {
-            label.setText (labelText.isNotEmpty() ? labelText : param.getName (32), juce::dontSendNotification);
-            label.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-            label.setJustificationType (juce::Justification::centred);
+            label.setText (labelFor (param, labelText), juce::dontSendNotification);
+            LabeledSlider::styleLabel (label);
             label.setInterceptsMouseClicks (false, false);
         }
     }
 
     //==============================================================================
-    /** A rotary slider with its name above. Double-click returns it to the default. */
-    class Knob : public juce::Component
+    /** A LabeledSlider for a parameter. Double-click returns it to the default. */
+    class Knob : public LabeledSlider
     {
     public:
         Knob (juce::AudioProcessorValueTreeState& apvts, const juce::ParameterID& id, const juce::String& labelText = {})
-            : attachment (apvts, id.getParamID(), slider)
+            : attachment (apvts, id.getParamID(), getSlider())
         {
-            const auto& param = detail::getParameter (apvts, id);
-            detail::initLabel (label, param, labelText);
-
-            slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-            slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 16);
-            slider.setDoubleClickReturnValue (true, param.convertFrom0to1 (param.getDefaultValue()));
-
-            addAndMakeVisible (label);
-            addAndMakeVisible (slider);
-        }
-
-        juce::Slider& getSlider() noexcept   { return slider; }
-
-        void resized() override
-        {
-            auto bounds = getLocalBounds();
-            label.setBounds (bounds.removeFromTop (16));
-            slider.setBounds (bounds);
+            setLabelText (detail::labelFor (detail::getParameter (apvts, id), labelText));
         }
 
     private:
-        juce::Label label;
-        juce::Slider slider;
         juce::AudioProcessorValueTreeState::SliderAttachment attachment;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Knob)
@@ -132,8 +118,7 @@ namespace srd
 
         void resized() override
         {
-            auto bounds = getLocalBounds();
-            label.setBounds (bounds.removeFromTop (16));
+            const auto bounds = LabeledSlider::layOutAboveLabel (label, getLocalBounds());
             button.setBounds (bounds.withSizeKeepingCentre (std::min (bounds.getWidth(), 64), std::min (bounds.getHeight(), 24)));
         }
 

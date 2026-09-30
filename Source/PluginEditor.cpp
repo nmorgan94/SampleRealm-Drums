@@ -5,7 +5,7 @@
 namespace
 {
     constexpr int editorWidth  = 1080;
-    constexpr int editorHeight = 640;
+    constexpr int editorHeight = 610;
     constexpr double previewSampleRate = 44100.0;
     constexpr float maxPreviewSeconds = 8.0f;
 
@@ -339,12 +339,12 @@ void AudioPluginAudioProcessorEditor::resized()
 
     // Sound panels along the bottom, sized by their number of controls
     constexpr int gap = 10;
-    srd::Panel::layOutRow (getSoundPanels (getInstrument()), bounds.removeFromBottom (150), gap);
+    srd::Panel::layOutRow (getSoundPanels (getInstrument()), bounds.removeFromBottom (120), gap);
     bounds.removeFromBottom (12);
 
     // Global controls and the trigger pad on the right
     auto right = bounds.removeFromRight (240);
-    globalPanel.setBounds (right.removeFromTop (262));
+    globalPanel.setBounds (right.removeFromTop (230));
     right.removeFromTop (gap);
     triggerPad.setBounds (right);
 

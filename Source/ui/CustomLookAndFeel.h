@@ -35,7 +35,6 @@ public:
     juce::Font getComboBoxFont (juce::ComboBox&) override;
     juce::Font getPopupMenuFont() override;
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
-    juce::Label* createSliderTextBox (juce::Slider&) override;
 
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height, float sliderPos,
                            float rotaryStartAngle, float rotaryEndAngle, juce::Slider&) override;

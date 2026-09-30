@@ -20,8 +20,6 @@ CustomLookAndFeel::CustomLookAndFeel()
 
         { juce::Slider::rotarySliderOutlineColourId,     P::outline },
         { juce::Slider::thumbColourId,                   P::text },
-        { juce::Slider::textBoxOutlineColourId,          juce::Colours::transparentBlack },
-        { juce::Slider::textBoxHighlightColourId,        P::accent.withAlpha (0.4f) },
 
         { juce::ComboBox::arrowColourId,                 P::textDim },
         { juce::PopupMenu::headerTextColourId,           P::textDim },
@@ -83,13 +81,6 @@ juce::Font CustomLookAndFeel::getPopupMenuFont()
 juce::Font CustomLookAndFeel::getTextButtonFont (juce::TextButton&, int)
 {
     return font (12.0f);
-}
-
-juce::Label* CustomLookAndFeel::createSliderTextBox (juce::Slider& slider)
-{
-    auto* label = LookAndFeel_V4::createSliderTextBox (slider);
-    label->setFont (juce::FontOptions (11.0f));
-    return label;
 }
 
 //==============================================================================
