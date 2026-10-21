@@ -71,31 +71,37 @@ Shared by all three instruments:
 - Presets store the envelope curves as well as the parameters
 - The preset name and unsaved-changes marker are restored with your DAW session
 
+## System Requirements
+
+- **macOS** 12 or later: VST3, AU and Standalone
+- **Windows** 10 or later, 64-bit: VST3 and Standalone
+
 ## Build Requirements
 
 - CMake 3.25+
-- A C++23-capable compiler
+- A C++23-capable compiler:
+  - **macOS**: Xcode or its Command Line Tools (the `xcode` preset needs the full Xcode app)
+  - **Windows**: Visual Studio 2022 or later with the "Desktop development with C++" workload
 - Git
-- macOS development environment for AU/Standalone/VST3 builds
 
-On the first configure, CMake downloads JUCE and pluginval automatically via CPM.
+On the first configure, CMake downloads JUCE, pluginval and Catch2 automatically via CPM.
 
-**Debug Build:**
-```bash
-cmake --preset debug
-cmake --build --preset debug
-```
+## Commands
 
-**Release Build:**
-```bash
-cmake --preset release
-cmake --build --preset release
-```
+| Task | Command |
+|---|---|
+| Build the plugin (Debug) | `cmake --workflow --preset debug` |
+| Build the plugin (Release) | `cmake --workflow --preset release` |
+| Run the unit tests | `cmake --workflow --preset unit` |
+| Run the unit tests and pluginval | `cmake --workflow --preset test` |
+| Run all tests against a Release build | `cmake --workflow --preset test-release` |
+| Launch the Standalone app (Debug) | `cmake --build --preset run` |
+| Install the plugin for your DAW: **macOS** | Automatic on every build |
+| Install the plugin for your DAW: **Windows** | `cmake --build --preset install-windows`, from an administrator prompt |
+| Open in an IDE: **macOS** | `cmake --preset xcode`, then open `build-xcode/Drums.xcodeproj` |
+| Open in an IDE: **Windows** | Open `build-debug\Drums.sln` in Visual Studio after a Debug workflow |
 
-**Run the Standalone app:**
-```bash
-open build-debug/Drums_artefacts/Debug/Standalone/Drums.app
-```
+`run` and `install-windows` use the Debug build, so run `cmake --workflow --preset debug` once first.
 
 ## Presets
 
@@ -110,6 +116,7 @@ To add one:
 
 User presets are saved to:
 - **macOS**: `~/Library/Application Support/SampleRealm/Drums/Presets/`
+- **Windows**: `%APPDATA%\SampleRealm\Drums\Presets\`
 
 A preset is the plugin's full state, parameters plus envelope curves, stored as XML. If a preset doesn't include a parameter, that parameter loads at its default, so older presets keep working as parameters are added.
 
@@ -120,7 +127,7 @@ To debug the plugin in Xcode with an executable:
 ### 1. Generate Xcode Project
 
 ```bash
-cmake -B build-xcode -G Xcode
+cmake --preset xcode
 open build-xcode/Drums.xcodeproj
 ```
 
@@ -143,20 +150,32 @@ open build-xcode/Drums.xcodeproj
 
 ```bash
 cmake --build --preset debug --target validate   # builds, then validates
-ctest --preset debug                             # validates an existing build
 ```
 
 Logs land in `build-debug/pluginval-logs/`. Strictness defaults to 10; use `-DPLUGINVAL_STRICTNESS=5` (range 1–10) for a faster run, or `-DENABLE_PLUGINVAL=OFF` to skip pluginval entirely.
 
-The AU test validates the installed component in `~/Library/Audio/Plug-Ins/Components`. macOS resolves Audio Units through its registry rather than by path, so this test needs `COPY_PLUGIN_AFTER_BUILD` left on.
+The AU test validates the installed component in `~/Library/Audio/Plug-Ins/Components`. macOS resolves Audio Units through its registry rather than by path, so this test needs `PLUGIN_COPY_AFTER_BUILD` left on.
+
+## Unit Tests
+
+Catch2 tests in `Tests/` drive the processor directly: parameter ranges and defaults, bus layouts, state save and restore, and finite output across block sizes and settings (see [Commands](#commands) to run them). Add a `.cpp` file to `Tests/` and reconfigure to pick it up.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds the Release plugin on macOS and Windows and runs the unit tests. It only runs when started by hand: **Actions → CI → Run workflow**, or `gh workflow run ci.yml`. Tick **Also run pluginval** (or pass `-f pluginval=true`) to validate the plugin too.
+
+Each run lists the plugins under **Artifacts** for 30 days: `Drums-macOS.tar.gz` (VST3 and AU) and `Drums-Windows.tar.gz` (VST3). They are unsigned.
 
 ## Plugin Locations
 
-**Build artefacts** (`Debug` or `Release`):
+**Build artefacts** (`Debug` or `Release`; on Windows the Standalone is `Drums.exe` and there is no AU):
 - Standalone: `build-debug/Drums_artefacts/Debug/Standalone/Drums.app`
 - AU: `build-debug/Drums_artefacts/Debug/AU/Drums.component`
 - VST3: `build-debug/Drums_artefacts/Debug/VST3/Drums.vst3`
 
-**Installed** (macOS, via `COPY_PLUGIN_AFTER_BUILD`):
+**Installed on macOS** (automatically after every build, unless `-DPLUGIN_COPY_AFTER_BUILD=OFF`):
 - VST3: `~/Library/Audio/Plug-Ins/VST3/Drums.vst3`
 - AU: `~/Library/Audio/Plug-Ins/Components/Drums.component`
+
+**Installed on Windows** (with the `install-windows` preset):
+- VST3: `C:\Program Files\Common Files\VST3\Drums.vst3`
