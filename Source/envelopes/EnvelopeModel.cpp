@@ -42,26 +42,22 @@ namespace srd
     //==============================================================================
     float EnvelopeModel::toDomain (std::size_t env, float displayValue) const noexcept
     {
-        return getSpec (env).scale == EnvelopeSpec::Scale::logarithmic ? std::log2 (displayValue) : displayValue;
+        return getSpec (env).toDomain (displayValue);
     }
 
     float EnvelopeModel::toDisplay (std::size_t env, float domainValue) const noexcept
     {
-        return getSpec (env).scale == EnvelopeSpec::Scale::logarithmic ? std::exp2 (domainValue) : domainValue;
+        return getSpec (env).toDisplay (domainValue);
     }
 
     float EnvelopeModel::clampValue (std::size_t env, float displayValue) const noexcept
     {
-        const auto& spec = getSpec (env);
-        return juce::jlimit (spec.minValue, spec.maxValue, displayValue);
+        return getSpec (env).clampValue (displayValue);
     }
 
     EnvelopeNode EnvelopeModel::clampNode (std::size_t env, EnvelopeNode n, float minTime, float maxTime) const noexcept
     {
-        n.time  = juce::jlimit (minTime, std::max (minTime, maxTime), n.time);
-        n.value = clampValue (env, n.value);
-        n.curve = juce::jlimit (-1.0f, 1.0f, n.curve);
-        return n;
+        return getSpec (env).clampNode (n, minTime, maxTime);
     }
 
     //==============================================================================
@@ -83,16 +79,8 @@ namespace srd
             if (child.hasType (nodeType))
                 nodes.push_back (readNode (child));
 
-        if (nodes.size() < 2)
+        if (! getSpec (env).sanitise (nodes))
             return false;
-
-        std::stable_sort (nodes.begin(), nodes.end(), [] (auto& a, auto& b) { return a.time < b.time; });
-        nodes.resize (std::min (nodes.size(), EnvelopeData::maxNodes));
-
-        nodes[0] = clampNode (env, nodes[0], 0.0f, 0.0f);
-
-        for (std::size_t i = 1; i < nodes.size(); ++i)
-            nodes[i] = clampNode (env, nodes[i], nodes[i - 1].time + minGap, getSpec (env).maxTime);
 
         tree.removeAllChildren (nullptr);
 
@@ -132,6 +120,7 @@ namespace srd
         }
 
         undoManager.clearUndoHistory();
+        ++outsideVersion;
         publish();
     }
 
@@ -143,19 +132,12 @@ namespace srd
 
     EnvelopeData EnvelopeModel::getData (std::size_t env) const
     {
-        EnvelopeData data;
+        std::vector<EnvelopeNode> nodes;
 
         for (const auto& child : getEnvTree (env))
-        {
-            if (data.numNodes >= EnvelopeData::maxNodes)
-                break;
+            nodes.push_back (readNode (child));
 
-            auto node = readNode (child);
-            node.value = toDomain (env, clampValue (env, node.value));
-            data.nodes[data.numNodes++] = node;
-        }
-
-        return data;
+        return getSpec (env).toData (nodes);
     }
 
     void EnvelopeModel::publish()
@@ -269,6 +251,24 @@ namespace srd
         return true;
     }
 
+    void EnvelopeModel::setNodes (std::size_t env, std::vector<EnvelopeNode> nodes)
+    {
+        if (! getSpec (env).sanitise (nodes))
+            return;
+
+        // One publish for the whole replacement
+        {
+            const juce::ScopedValueSetter<bool> svs (ignoreTreeChanges, true);
+            auto tree = getEnvTree (env);
+            tree.removeAllChildren (nullptr);
+
+            for (const auto& n : nodes)
+                tree.appendChild (makeNode (n), nullptr);
+        }
+
+        notifyEdited();
+    }
+
     //==============================================================================
     bool EnvelopeModel::isEnvelopeTree (const juce::ValueTree& tree) const
     {
@@ -288,7 +288,10 @@ namespace srd
     void EnvelopeModel::handleTreeChange (const juce::ValueTree& changed)
     {
         if (! ignoreTreeChanges && isEnvelopeTree (changed))
+        {
+            ++outsideVersion;
             notifyEdited();
+        }
     }
 
     void EnvelopeModel::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier&)

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../dsp/ClickGenerator.h"
-#include "../dsp/EnvelopedOscillator.h"
-#include "../dsp/RetriggerFade.h"
+#include "ClickGenerator.h"
+#include "EnvelopedOscillator.h"
+#include "RetriggerFade.h"
 
 //==============================================================================
 /**

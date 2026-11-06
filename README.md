@@ -84,7 +84,7 @@ Shared by all three instruments:
   - **Windows**: Visual Studio 2022 or later with the "Desktop development with C++" workload
 - Git
 
-On the first configure, CMake downloads JUCE, pluginval and Catch2 automatically via CPM.
+On the first configure, CMake downloads JUCE, pluginval and Catch2 automatically via CPM, into `.cpm-cache/`. The wasm build keeps its patched JUCE there too, beside the clean one.
 
 ## Commands
 
@@ -95,6 +95,7 @@ On the first configure, CMake downloads JUCE, pluginval and Catch2 automatically
 | Run the unit tests | `cmake --workflow --preset unit` |
 | Run the unit tests and pluginval | `cmake --workflow --preset test` |
 | Run all tests against a Release build | `cmake --workflow --preset test-release` |
+| Build the plugin with the WebView editor (Release) | `cmake --workflow --preset webview` |
 | Launch the Standalone app (Debug) | `cmake --build --preset run` |
 | Install the plugin for your DAW: **macOS** | Automatic on every build |
 | Install the plugin for your DAW: **Windows** | `cmake --build --preset install-windows`, from an administrator prompt |
@@ -158,13 +159,32 @@ The AU test validates the installed component in `~/Library/Audio/Plug-Ins/Compo
 
 ## Unit Tests
 
-Catch2 tests in `Tests/` drive the processor directly: parameter ranges and defaults, bus layouts, state save and restore, and finite output across block sizes and settings (see [Commands](#commands) to run them). Add a `.cpp` file to `Tests/` and reconfigure to pick it up.
+Catch2 tests in `Tests/` drive the processor directly: bus layouts, state save and restore, and finite output across block sizes and settings (see [Commands](#commands) to run them). Add a `.cpp` file to `Tests/` and reconfigure to pick it up.
+
+- `ParameterSnapshotTests.cpp` pins every parameter's id, range, default and text, which saved sessions rely on. Change it only on purpose.
+- `GoldenTests.cpp` checks rendered hits against `Tests/fixtures/golden.json`, which the wasm engine's test also checks. After a deliberate change to the sound, re-record it with `build-debug/Drums_Tests "[.write-golden]"`.
 
 ## CI
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds the Release plugin on macOS and Windows and runs the unit tests. It only runs when started by hand: **Actions → CI → Run workflow**, or `gh workflow run ci.yml`. Tick **Also run pluginval** (or pass `-f pluginval=true`) to validate the plugin too.
 
 Each run lists the plugins under **Artifacts** for 30 days: `Drums-macOS.tar.gz` (VST3 and AU) and `Drums-Windows.tar.gz` (VST3). They are unsigned.
+
+## Web Demo and WebView Editor
+
+Needs Emscripten (`brew install emscripten`) and Node 24+.
+
+| Task | Command |
+|---|---|
+| Build and test the demo (engine and UI tests) | `cd wasm && cmake --workflow --preset wasm` |
+| Serve the demo with live reload at http://localhost:8099 | `cd webui && npm run serve` |
+| Typecheck and test the UI on their own | `cd webui && npm run typecheck && npm test` |
+| Build the plugin with the WebView editor | `cmake --workflow --preset webview` |
+
+- The demo builds to `wasm/build-wasm/SampleRealm-Drums-<version>/`, named from `COMPANY_NAME`, `project()` and `VERSION` in `CMakeLists.txt`. Upload that folder; the site embeds its `index.html` in an iframe. [`wasm.yml`](.github/workflows/wasm.yml) builds the same folder on GitHub as an artifact of that name, run by hand.
+- The demo plays from the on-screen keyboard, the computer keyboard (A to ' from C1) or a MIDI keyboard, and the Hit pad. Its user presets stay in the browser.
+- The `webview` build installs over the native one; run the `release` workflow to switch back.
+- Delete `wasm/patches/juce-wasm.patch` once JUCE fixes its wasm support.
 
 ## Plugin Locations
 

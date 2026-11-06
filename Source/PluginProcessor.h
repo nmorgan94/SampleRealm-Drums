@@ -2,12 +2,9 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters.h"
-#include "dsp/EnvelopeModel.h"
+#include "dsp/DrumSynth.h"
 #include "dsp/PeakMeter.h"
-#include "dsp/VoicePool.h"
-#include "engine/DrumEnvelopes.h"
-#include "engine/EngineParams.h"
-#include "engine/FxChain.h"
+#include "envelopes/EnvelopeModel.h"
 #include "presets/PresetManager.h"
 
 //==============================================================================
@@ -54,63 +51,48 @@ public:
     juce::AudioProcessorValueTreeState& getAPVTS()      { return apvts; }
     srd::EnvelopeModel& getEnvelopeModel()              { return envelopeModel; }
     srd::PresetManager& getPresetManager()              { return presetManager; }
-    EngineParams& getEngineParams()                     { return engineParams; }
     srd::PeakMeter& getOutputMeter()                    { return outputMeter; }
 
+    /** The current parameter values as the engine uses them. Safe from any thread. */
+    DrumSynth::Settings getDrumSettings() const noexcept;
+
+    /** The envelopes as the engine uses them. Message thread. */
+    DrumSynth::Envelopes getDrumEnvelopes() const;
+
     /** Replays the last note played on the next audio block. */
-    void triggerAudition() noexcept                     { auditionPending = true; }
+    void triggerAudition() noexcept                     { synth.audition(); }
 
     /** The current instrument's last note, so the UI can show where its tail lands with Key Track on. */
     int getLastNote() const noexcept;
+    int getLastNote (Parameters::Instrument instrument) const noexcept   { return synth.getLastNote (instrument); }
 
     /** Increments on every hit, so the UI can flash without listening to MIDI. */
-    juce::uint32 getHitCount() const noexcept           { return hitCount.load(); }
+    juce::uint32 getHitCount() const noexcept           { return synth.getHitCount(); }
 
 private:
+    // In ParameterSpecs::all's order
+    using ParameterValues = std::array<const std::atomic<float>*, ParameterSpecs::all.size()>;
+
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "Parameters",
                                                Parameters::createLayout() };
 
+    // Raw parameter pointers, cached once so reading is lock-free on the audio thread
+    const ParameterValues parameterValues = findParameterValues (apvts);
+
     srd::EnvelopeModel envelopeModel { apvts, DrumEnvelopes::createSpecs() };
     srd::PresetManager presetManager { apvts, createPresetConfig() };
-    EngineParams engineParams { apvts };
 
-    srd::VoicePool<KickVoice, 4> kickVoices;
-    srd::VoicePool<SnareVoice, 4> snareVoices;
-    srd::VoicePool<CymbalVoice, 4> cymbalVoices;
-    FxChain fxChain;
+    DrumSynth synth;
     srd::PeakMeter outputMeter;
 
     srd::EnvelopeModel::Snapshot envelopes;
     juce::uint32 envelopeVersion = 0;
 
-    Parameters::Instrument playing = Parameters::Instrument::kick;  // audio thread only
-
-    std::atomic<bool> auditionPending { false };
-    std::atomic<juce::uint32> hitCount { 0 };
-
-    // Each instrument keeps its own last note. Until MIDI arrives the Hit pad plays where each
-    // default pitch envelope settles, so turning Key Track on doesn't change the sound
-    std::atomic<int> lastKickNote   { 29 };  // F1, 43.65 Hz
-    std::atomic<int> lastSnareNote  { 55 };  // G3, 196 Hz
-    std::atomic<int> lastCymbalNote { 42 };  // the cymbal ignores the note; kept so lastNoteOf covers every instrument
-
     static srd::PresetManager::Config createPresetConfig();
+    static ParameterValues findParameterValues (juce::AudioProcessorValueTreeState&);
 
-    auto& lastNoteOf (this auto& self, Parameters::Instrument instrument) noexcept
-    {
-        switch (instrument)
-        {
-            case Parameters::Instrument::snare:  return self.lastSnareNote;
-            case Parameters::Instrument::cymbal: return self.lastCymbalNote;
-            case Parameters::Instrument::kick:   break;
-        }
-
-        return self.lastKickNote;
-    }
-
-    void startNote (int midiNote) noexcept;
-    void fadeOutAll() noexcept;
-    void renderVoices (float* output, int startSample, int endSample) noexcept;
+    float valueOf (const ParameterSpecs::Spec&) const noexcept;
+    void updateEnvelopes() noexcept;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

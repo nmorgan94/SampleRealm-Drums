@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../dsp/EnvelopedNoise.h"
-#include "../dsp/MetalOscillator.h"
-#include "../dsp/RetriggerFade.h"
+#include "EnvelopedNoise.h"
+#include "MetalOscillator.h"
+#include "RetriggerFade.h"
 
 //==============================================================================
 /**

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "PluginProcessor.h"
-#include "engine/PreviewRenderer.h"
+#include "dsp/PreviewRenderer.h"
 #include "ui/Controls.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/EnvelopeEditor.h"
@@ -18,6 +18,8 @@ class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                               private juce::AudioProcessorListener
 {
 public:
+    static constexpr int width = 1080, height = 610;
+
     explicit AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor&);
     ~AudioPluginAudioProcessorEditor() override;
 

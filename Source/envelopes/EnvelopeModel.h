@@ -1,24 +1,10 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "BreakpointEnvelope.h"
+#include "../shared/DrumEnvelopes.h"
 
 namespace srd
 {
-    //==============================================================================
-    /** Describes one breakpoint envelope: its range, scale and default shape. */
-    struct EnvelopeSpec
-    {
-        enum class Scale { linear, logarithmic };
-
-        juce::String id;                       // stored as ENV[id=...] in the state tree
-        Scale scale     = Scale::linear;       // logarithmic interpolates in log2 (use for Hz)
-        float minValue  = 0.0f;
-        float maxValue  = 1.0f;
-        float maxTime   = 2.0f;                // seconds
-        std::vector<EnvelopeNode> defaultNodes; // display units, time-ordered, first at t = 0
-    };
-
     //==============================================================================
     class EnvelopeModel : private juce::ValueTree::Listener
     {
@@ -44,6 +30,10 @@ namespace srd
         /** Bumped on every publish, so the UI can poll for changes. */
         juce::uint32 getVersion() const noexcept               { return version.load(); }
 
+        /** Bumped by every change but setNode and setNodes, so the WebView editor sends the page only
+            presets and state restores. Message thread. */
+        juce::uint32 getOutsideVersion() const noexcept        { return outsideVersion; }
+
         /** Seconds until the envelope's last node. Safe from any thread. */
         float getDuration (std::size_t env) const noexcept     { return durations[env].load(); }
 
@@ -62,6 +52,10 @@ namespace srd
         /** Removes a node. The first and last nodes can't be removed. */
         bool removeNode (std::size_t env, int index);
 
+        /** Replaces the whole envelope, sorted, spaced and clamped as a loaded one is, and without
+            undo, as the WebView editor keeps its own. Fewer than two nodes are ignored. */
+        void setNodes (std::size_t env, std::vector<EnvelopeNode>);
+
         /** Converted data for evaluation, in the interpolation domain. */
         EnvelopeData getData (std::size_t env) const;
 
@@ -75,7 +69,7 @@ namespace srd
         float toDisplay (std::size_t env, float domainValue) const noexcept;
         float clampValue (std::size_t env, float displayValue) const noexcept;
 
-        static constexpr float minGap = 0.0005f; // seconds between neighbouring nodes
+        static constexpr float minGap = EnvelopeSpec::minGap;
 
     private:
         juce::AudioProcessorValueTreeState& apvts;
@@ -86,6 +80,7 @@ namespace srd
         Snapshot published;
         std::array<std::atomic<float>, maxEnvelopes> durations {};
         std::atomic<juce::uint32> version { 0 };
+        juce::uint32 outsideVersion = 0;
 
         // Set while this class changes the tree itself, so it can publish once afterwards
         bool ignoreTreeChanges = false;

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../dsp/ClickGenerator.h"
-#include "../dsp/EnvelopedNoise.h"
-#include "../dsp/EnvelopedOscillator.h"
-#include "../dsp/RetriggerFade.h"
+#include "ClickGenerator.h"
+#include "EnvelopedNoise.h"
+#include "EnvelopedOscillator.h"
+#include "RetriggerFade.h"
 
 //==============================================================================
 /**

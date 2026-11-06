@@ -18,10 +18,7 @@ namespace srd
     public:
         enum class Type { noise, sweep, impulse };
 
-        /** Display names, in the same order as Type. */
-        static juce::StringArray getTypeNames()     { return { "Noise", "Sweep", "Impulse" }; }
-
-        /** Maps a choice-parameter index (in getTypeNames() order) to a Type. */
+        /** Maps a choice-parameter index (in ParameterSpecs::clickTypeNames order) to a Type. */
         static Type typeFromIndex (int index) noexcept
         {
             switch (index)

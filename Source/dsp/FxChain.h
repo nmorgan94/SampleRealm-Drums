@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../dsp/Clipper.h"
-#include "../dsp/Drive.h"
-#include "../dsp/ThreeBandEQ.h"
+#include "Clipper.h"
+#include "Drive.h"
+#include "ThreeBandEQ.h"
 
 //==============================================================================
 /** The kick's mono output chain: Drive → DC blocker → EQ → Clipper → Output gain. */

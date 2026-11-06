@@ -1,0 +1,34 @@
+/* CustomLookAndFeel::Palette */
+@theme static {
+  --color-background: #0d0f13;
+  --color-panel: #161a21;
+  --color-widget: #1f242d;
+  --color-line: #2a303b;
+  --color-grid: #212631;
+  --color-fg: #e6e9ef;
+  --color-dim: #7d8595;
+  --color-thumb: #ff6a2b;
+  --color-accent: #ff6a2b;
+  --color-accent-alt: #38d5f2;
+  --color-accent-alt2: #b48cff;
+  --color-waveform: #4a5263;
+  --color-clip: #ff3d4a;
+  --font-display: Orbitron, var(--font-sans);
+}
+
+@font-face {
+  font-family: Orbitron;
+  font-weight: 400;
+  src: url('../../Assets/Orbitron-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: Orbitron;
+  font-weight: 700;
+  src: url('../../Assets/Orbitron-Bold.ttf') format('truetype');
+}
+
+body {
+  font-family: var(--font-display);
+  color: var(--color-fg);
+}

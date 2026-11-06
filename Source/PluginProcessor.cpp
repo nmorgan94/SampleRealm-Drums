@@ -1,6 +1,11 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "shared/DrumSettings.h"
 #include <BinaryData.h>
+
+#if PLUGIN_WEBVIEW_EDITOR
+ #include "webview/WebViewEditor.h"
+#endif
 
 //==============================================================================
 AudioPluginAudioProcessor::AudioPluginAudioProcessor()
@@ -9,12 +14,53 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 {
     // Curve edits count as changes to the loaded preset, just like parameter moves
     envelopeModel.onUserEdit = [this] { presetManager.markModified(); };
-    envelopeModel.tryGetLatest (envelopes, envelopeVersion);
+    updateEnvelopes();
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
     envelopeModel.onUserEdit = nullptr;
+}
+
+AudioPluginAudioProcessor::ParameterValues AudioPluginAudioProcessor::findParameterValues (juce::AudioProcessorValueTreeState& state)
+{
+    ParameterValues values;
+
+    std::ranges::transform (ParameterSpecs::all, values.begin(), [&state] (const ParameterSpecs::Spec* spec)
+    {
+        auto* value = state.getRawParameterValue (spec->id);
+        jassert (value != nullptr);
+        return value;
+    });
+
+    return values;
+}
+
+float AudioPluginAudioProcessor::valueOf (const ParameterSpecs::Spec& spec) const noexcept
+{
+    return parameterValues[ParameterSpecs::indexOf (spec)]->load();
+}
+
+DrumSynth::Settings AudioPluginAudioProcessor::getDrumSettings() const noexcept
+{
+    return makeDrumSettings ([this] (const ParameterSpecs::Spec& spec) { return valueOf (spec); });
+}
+
+DrumSynth::Envelopes AudioPluginAudioProcessor::getDrumEnvelopes() const
+{
+    DrumSynth::Envelopes current;
+
+    for (std::size_t env = 0; env < current.size(); ++env)
+        current[env] = envelopeModel.getData (env);
+
+    return current;
+}
+
+void AudioPluginAudioProcessor::updateEnvelopes() noexcept
+{
+    if (envelopeModel.tryGetLatest (envelopes, envelopeVersion))
+        for (std::size_t env = 0; env < DrumEnvelopes::count; ++env)
+            synth.setEnvelope (env, envelopes[env]);
 }
 
 srd::PresetManager::Config AudioPluginAudioProcessor::createPresetConfig()
@@ -70,21 +116,12 @@ double AudioPluginAudioProcessor::getTailLengthSeconds() const
 {
     const auto latency = getSampleRate() > 0.0 ? getLatencySamples() / getSampleRate() : 0.0;
 
-    switch (engineParams.getInstrument())
-    {
-        case Parameters::Instrument::snare:
-            return latency + SnareVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::snareBody),
-                                                             envelopeModel.getDuration (DrumEnvelopes::snareNoise),
-                                                             engineParams.snareSettings (0, {}));
-        case Parameters::Instrument::cymbal:
-            return latency + CymbalVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::cymbalMetal),
-                                                              envelopeModel.getDuration (DrumEnvelopes::cymbalNoise),
-                                                              engineParams.cymbalSettings());
-        case Parameters::Instrument::kick:
-            break;
-    }
+    DrumSynth::Durations durations;
 
-    return latency + KickVoice::getDurationSeconds (envelopeModel.getDuration (DrumEnvelopes::kickAmp), engineParams.kickSettings (0, {}));
+    for (std::size_t env = 0; env < durations.size(); ++env)
+        durations[env] = envelopeModel.getDuration (env);
+
+    return latency + DrumSynth::getHitSeconds (getDrumSettings(), durations);
 }
 
 int AudioPluginAudioProcessor::getNumPrograms()
@@ -114,22 +151,13 @@ void AudioPluginAudioProcessor::changeProgramName (int, const juce::String&)
 //==============================================================================
 void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    kickVoices.prepare (sampleRate);
-    snareVoices.prepare (sampleRate);
-    cymbalVoices.prepare (sampleRate);
-
-    fxChain.prepare (sampleRate, samplesPerBlock);
-    fxChain.setSettings (engineParams.fxSettings());
-    fxChain.reset();
-
-    setLatencySamples (fxChain.getLatencySamples());
+    synth.prepare (sampleRate, samplesPerBlock, getDrumSettings());
+    setLatencySamples (synth.getLatencySamples());
 }
 
 void AudioPluginAudioProcessor::releaseResources()
 {
-    kickVoices.stop();
-    snareVoices.stop();
-    cymbalVoices.stop();
+    synth.stop();
 }
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -145,53 +173,7 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 //==============================================================================
 int AudioPluginAudioProcessor::getLastNote() const noexcept
 {
-    return lastNoteOf (engineParams.getInstrument()).load();
-}
-
-void AudioPluginAudioProcessor::startNote (int midiNote) noexcept
-{
-    fadeOutAll();
-
-    switch (playing)
-    {
-        case Parameters::Instrument::kick:
-        {
-            const auto& pitch = envelopes[DrumEnvelopes::kickPitch];
-            kickVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::kickAmp], engineParams.kickSettings (midiNote, pitch));
-            break;
-        }
-        case Parameters::Instrument::snare:
-        {
-            const auto& pitch = envelopes[DrumEnvelopes::snarePitch];
-            snareVoices.getFreeVoice().start (pitch, envelopes[DrumEnvelopes::snareBody], envelopes[DrumEnvelopes::snareNoise],
-                                              engineParams.snareSettings (midiNote, pitch));
-            break;
-        }
-        case Parameters::Instrument::cymbal:
-            cymbalVoices.getFreeVoice().start (envelopes[DrumEnvelopes::cymbalMetal], envelopes[DrumEnvelopes::cymbalNoise],
-                                               engineParams.cymbalSettings());
-            break;
-    }
-
-    // The cymbal ignores the note
-    if (playing != Parameters::Instrument::cymbal)
-        lastNoteOf (playing) = midiNote;
-
-    ++hitCount;
-}
-
-void AudioPluginAudioProcessor::fadeOutAll() noexcept
-{
-    kickVoices.fadeOut();
-    snareVoices.fadeOut();
-    cymbalVoices.fadeOut();
-}
-
-void AudioPluginAudioProcessor::renderVoices (float* output, int startSample, int endSample) noexcept
-{
-    kickVoices.render (output + startSample, endSample - startSample);
-    snareVoices.render (output + startSample, endSample - startSample);
-    cymbalVoices.render (output + startSample, endSample - startSample);
+    return synth.getLastNote (Parameters::instrumentFromIndex (juce::roundToInt (valueOf (ParameterSpecs::instrument))));
 }
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -204,45 +186,12 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (numSamples == 0 || buffer.getNumChannels() == 0)
         return;
 
-    envelopeModel.tryGetLatest (envelopes, envelopeVersion);
-    fxChain.setSettings (engineParams.fxSettings());
-
-    // A new instrument fades out the old one's hits
-    if (const auto instrument = engineParams.getInstrument(); instrument != playing)
-    {
-        fadeOutAll();
-        playing = instrument;
-    }
+    updateEnvelopes();
+    synth.setSettings (getDrumSettings());
 
     // The drum is mono: render into the first channel, then copy it to the rest
     auto* mono = buffer.getWritePointer (0);
-    juce::FloatVectorOperations::clear (mono, numSamples);
-
-    if (auditionPending.exchange (false))
-        startNote (lastNoteOf (playing).load());
-
-    // Split the block at each note-on so hits are sample-accurate
-    int position = 0;
-
-    for (const auto metadata : midiMessages)
-    {
-        const auto message = metadata.getMessage();
-
-        if (! message.isNoteOn() && ! message.isAllNotesOff() && ! message.isAllSoundOff())
-            continue;
-
-        const auto eventPosition = juce::jlimit (0, numSamples, metadata.samplePosition);
-        renderVoices (mono, position, eventPosition);
-        position = eventPosition;
-
-        if (message.isNoteOn())
-            startNote (message.getNoteNumber());
-        else
-            fadeOutAll();
-    }
-
-    renderVoices (mono, position, numSamples);
-    fxChain.process (mono, numSamples);
+    synth.process (mono, numSamples, midiMessages);
     outputMeter.process (mono, numSamples);
 
     for (int channel = 1; channel < buffer.getNumChannels(); ++channel)
@@ -257,7 +206,11 @@ bool AudioPluginAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 {
+   #if PLUGIN_WEBVIEW_EDITOR
+    return new WebViewEditor (*this);
+   #else
     return new AudioPluginAudioProcessorEditor (*this);
+   #endif
 }
 
 //==============================================================================

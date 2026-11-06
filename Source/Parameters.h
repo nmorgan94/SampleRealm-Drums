@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "shared/ParameterSpecs.h"
 
 //==============================================================================
 namespace Parameters
@@ -11,83 +12,71 @@ namespace Parameters
 
     // Parameter IDs — use these constants everywhere instead of raw strings.
     // inline const means one definition shared across all translation units (C++17).
+    namespace Specs = ParameterSpecs;
 
     // Global
-    inline const juce::ParameterID instrumentId  { "instrument",  versionHint };
-    inline const juce::ParameterID outputGainId  { "outputGain",  versionHint };
-    inline const juce::ParameterID tuneId        { "tune",        versionHint };
-    inline const juce::ParameterID keyTrackId    { "keyTrack",    versionHint };
-    inline const juce::ParameterID lengthId      { "length",      versionHint };
-    inline const juce::ParameterID pitchDepthId  { "pitchDepth",  versionHint };
+    inline const juce::ParameterID instrumentId  { Specs::instrument.id, versionHint };
+    inline const juce::ParameterID outputGainId  { Specs::outputGain.id, versionHint };
+    inline const juce::ParameterID tuneId        { Specs::tune.id,       versionHint };
+    inline const juce::ParameterID keyTrackId    { Specs::keyTrack.id,   versionHint };
+    inline const juce::ParameterID lengthId      { Specs::length.id,     versionHint };
+    inline const juce::ParameterID pitchDepthId  { Specs::pitchDepth.id, versionHint };
 
     // Sub
-    inline const juce::ParameterID subLevelId     { "subLevel",     versionHint };
-    inline const juce::ParameterID subHarmonicsId { "subHarmonics", versionHint };
-    inline const juce::ParameterID subPhaseId     { "subPhase",     versionHint };
+    inline const juce::ParameterID subLevelId     { Specs::subLevel.id,     versionHint };
+    inline const juce::ParameterID subHarmonicsId { Specs::subHarmonics.id, versionHint };
+    inline const juce::ParameterID subPhaseId     { Specs::subPhase.id,     versionHint };
 
     // Click
-    inline const juce::ParameterID clickTypeId  { "clickType",  versionHint };
-    inline const juce::ParameterID clickLevelId { "clickLevel", versionHint };
-    inline const juce::ParameterID clickToneId  { "clickTone",  versionHint };
-    inline const juce::ParameterID clickDecayId { "clickDecay", versionHint };
-    inline const juce::ParameterID clickPitchId { "clickPitch", versionHint };
+    inline const juce::ParameterID clickTypeId  { Specs::clickType.id,  versionHint };
+    inline const juce::ParameterID clickLevelId { Specs::clickLevel.id, versionHint };
+    inline const juce::ParameterID clickToneId  { Specs::clickTone.id,  versionHint };
+    inline const juce::ParameterID clickDecayId { Specs::clickDecay.id, versionHint };
+    inline const juce::ParameterID clickPitchId { Specs::clickPitch.id, versionHint };
 
     // Snare body
-    inline const juce::ParameterID snareBodyLevelId     { "snareBodyLevel",     versionHint };
-    inline const juce::ParameterID snareBodyHarmonicsId { "snareBodyHarmonics", versionHint };
+    inline const juce::ParameterID snareBodyLevelId     { Specs::snareBodyLevel.id,     versionHint };
+    inline const juce::ParameterID snareBodyHarmonicsId { Specs::snareBodyHarmonics.id, versionHint };
 
     // Snare noise
-    inline const juce::ParameterID snareNoiseLevelId    { "snareNoiseLevel",    versionHint };
-    inline const juce::ParameterID snareNoiseLowCutId   { "snareNoiseLowCut",   versionHint };
-    inline const juce::ParameterID snareNoiseHighCutId  { "snareNoiseHighCut",  versionHint };
+    inline const juce::ParameterID snareNoiseLevelId    { Specs::snareNoiseLevel.id,   versionHint };
+    inline const juce::ParameterID snareNoiseLowCutId   { Specs::snareNoiseLowCut.id,  versionHint };
+    inline const juce::ParameterID snareNoiseHighCutId  { Specs::snareNoiseHighCut.id, versionHint };
 
     // Snare snap
-    inline const juce::ParameterID snareSnapTypeId  { "snareSnapType",  versionHint };
-    inline const juce::ParameterID snareSnapLevelId { "snareSnapLevel", versionHint };
-    inline const juce::ParameterID snareSnapToneId  { "snareSnapTone",  versionHint };
-    inline const juce::ParameterID snareSnapDecayId { "snareSnapDecay", versionHint };
-    inline const juce::ParameterID snareSnapPitchId { "snareSnapPitch", versionHint };
+    inline const juce::ParameterID snareSnapTypeId  { Specs::snareSnapType.id,  versionHint };
+    inline const juce::ParameterID snareSnapLevelId { Specs::snareSnapLevel.id, versionHint };
+    inline const juce::ParameterID snareSnapToneId  { Specs::snareSnapTone.id,  versionHint };
+    inline const juce::ParameterID snareSnapDecayId { Specs::snareSnapDecay.id, versionHint };
+    inline const juce::ParameterID snareSnapPitchId { Specs::snareSnapPitch.id, versionHint };
 
     // Cymbal metal
-    inline const juce::ParameterID cymbalMetalLevelId { "cymbalMetalLevel", versionHint };
-    inline const juce::ParameterID cymbalMetalToneId  { "cymbalMetalTone",  versionHint };
-    inline const juce::ParameterID cymbalMetalRingId  { "cymbalMetalRing",  versionHint };
+    inline const juce::ParameterID cymbalMetalLevelId { Specs::cymbalMetalLevel.id, versionHint };
+    inline const juce::ParameterID cymbalMetalToneId  { Specs::cymbalMetalTone.id,  versionHint };
+    inline const juce::ParameterID cymbalMetalRingId  { Specs::cymbalMetalRing.id,  versionHint };
 
     // Cymbal noise
-    inline const juce::ParameterID cymbalNoiseLevelId   { "cymbalNoiseLevel",   versionHint };
-    inline const juce::ParameterID cymbalNoiseLowCutId  { "cymbalNoiseLowCut",  versionHint };
-    inline const juce::ParameterID cymbalNoiseHighCutId { "cymbalNoiseHighCut", versionHint };
+    inline const juce::ParameterID cymbalNoiseLevelId   { Specs::cymbalNoiseLevel.id,   versionHint };
+    inline const juce::ParameterID cymbalNoiseLowCutId  { Specs::cymbalNoiseLowCut.id,  versionHint };
+    inline const juce::ParameterID cymbalNoiseHighCutId { Specs::cymbalNoiseHighCut.id, versionHint };
 
     // Drive
-    inline const juce::ParameterID driveTypeId   { "driveType",   versionHint };
-    inline const juce::ParameterID driveAmountId { "driveAmount", versionHint };
-    inline const juce::ParameterID driveMixId    { "driveMix",    versionHint };
+    inline const juce::ParameterID driveTypeId   { Specs::driveType.id,   versionHint };
+    inline const juce::ParameterID driveAmountId { Specs::driveAmount.id, versionHint };
+    inline const juce::ParameterID driveMixId    { Specs::driveMix.id,    versionHint };
 
     // EQ
-    inline const juce::ParameterID eqLowGainId  { "eqLowGain",  versionHint };
-    inline const juce::ParameterID eqMidFreqId  { "eqMidFreq",  versionHint };
-    inline const juce::ParameterID eqMidGainId  { "eqMidGain",  versionHint };
-    inline const juce::ParameterID eqHighGainId { "eqHighGain", versionHint };
+    inline const juce::ParameterID eqLowGainId  { Specs::eqLowGain.id,  versionHint };
+    inline const juce::ParameterID eqMidFreqId  { Specs::eqMidFreq.id,  versionHint };
+    inline const juce::ParameterID eqMidGainId  { Specs::eqMidGain.id,  versionHint };
+    inline const juce::ParameterID eqHighGainId { Specs::eqHighGain.id, versionHint };
 
     // Clip
-    inline const juce::ParameterID clipAmountId { "clipAmount", versionHint };
+    inline const juce::ParameterID clipAmountId { Specs::clipAmount.id, versionHint };
 
-    enum class Instrument { kick, snare, cymbal };
-    inline const juce::StringArray instrumentNames { "Kick", "Snare", "Cymbal" };
+    using ParameterSpecs::Instrument;
+    using ParameterSpecs::instrumentFromIndex;
 
-    constexpr Instrument instrumentFromIndex (int index) noexcept
-    {
-        switch (index)
-        {
-            case 1:  return Instrument::snare;
-            case 2:  return Instrument::cymbal;
-            default: return Instrument::kick;
-        }
-    }
-
-    // The bottom of every level range; the display shows it as "-inf dB" and the engine as silence
-    constexpr float minusInfinityDb = -60.0f;
-
-    // Parameter layout factory — defined in Parameters.cpp, compiled once.
+    // Built from ParameterSpecs::all, in its order
     juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 }

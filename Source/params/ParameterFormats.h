@@ -10,13 +10,6 @@
  */
 namespace srd::params
 {
-    inline juce::NormalisableRange<float> skewedRange (float min, float max, float centre, float interval = 0.0f)
-    {
-        juce::NormalisableRange<float> range { min, max, interval };
-        range.setSkewForCentre (centre);
-        return range;
-    }
-
     inline juce::String number (float v, int decimals)
     {
         if (decimals <= 0)
@@ -69,6 +62,4 @@ namespace srd::params
                 return text.getFloatValue();
             });
     }
-
-    inline juce::AudioParameterFloatAttributes percent()   { return withSuffix (" %", 0); }
 }

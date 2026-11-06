@@ -16,10 +16,7 @@ namespace srd
     public:
         enum class Type { soft, hard, fold, tube };
 
-        /** Display names, in the same order as Type. */
-        static juce::StringArray getTypeNames()     { return { "Soft", "Hard", "Fold", "Tube" }; }
-
-        /** Maps a choice-parameter index (in getTypeNames() order) to a Type. */
+        /** Maps a choice-parameter index (in ParameterSpecs::driveTypeNames order) to a Type. */
         static Type typeFromIndex (int index) noexcept
         {
             switch (index)
