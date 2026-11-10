@@ -3,12 +3,13 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import type { DrumsBackend, Preview } from './backend.ts';
 import { ChoiceBox, ChoiceButtons, Knob, Toggle } from './controls.tsx';
 import { EnvelopeEditor, type Curve } from './EnvelopeEditor.tsx';
+import { HeaderBar, type HeaderLayout, type HeaderTitle } from './HeaderBar.tsx';
 import { useHits, useParam } from './hooks.ts';
-import { layOutRow, type Box } from './layout.ts';
+import { centred, layOutRow, type Box } from './layout.ts';
 import { LevelMeter } from './LevelMeter.tsx';
+import { useManual } from './ManualOverlay.tsx';
 import { minimumWidth, Panel, panelLayout } from './Panel.tsx';
 import { hertzText } from './params.ts';
-import { PresetBar } from './PresetBar.tsx';
 import { usePrompt } from './PromptOverlay.tsx';
 import { Text } from './Text.tsx';
 import { TriggerPad } from './TriggerPad.tsx';
@@ -18,12 +19,27 @@ export const EDITOR_HEIGHT = 610;
 
 const MAX_PREVIEW_SECONDS = 8;
 
+// AudioPluginAudioProcessorEditor::headerTitle and headerLayout
+const HEADER_TITLE: HeaderTitle = { small: 'SAMPLEREALM', large: 'DRUMS' };
+
+// Source/ui/TailMeter.h
+const TAIL_METER = { meterWidth: 14, meterHeight: 40, gap: 10, readoutWidth: 150 };
+
+const HEADER_LAYOUT: HeaderLayout = {
+  height: 68,
+  edge: 16,
+  titleWidth: 150,
+  titleHeight: 22,
+  switchWidth: 220,
+  gap: 22,
+  controlsHeight: 30,
+  menuWidth: 28,
+  menuGap: 4,
+  meterWidth: TAIL_METER.readoutWidth + TAIL_METER.gap + TAIL_METER.meterWidth,
+  meterInset: 12,
+};
+
 const BOXES = {
-  title: { left: 16, top: 12, width: 150, height: 44 },
-  instrument: { left: 166, top: 19, width: 220, height: 30 },
-  presetBar: { left: 408, top: 19, width: 460, height: 30 },
-  readout: { left: 890, top: 12, width: 150, height: 44 },
-  meter: { left: 1050, top: 14, width: 14, height: 40 },
   envelopePanel: { left: 16, top: 70, width: 790, height: 396 },
   envelopeEditor: { left: 24, top: 78, width: 774, height: 380 },
   global: { left: 824, top: 70, width: 240, height: 230 },
@@ -175,9 +191,9 @@ function ParamPanel({ backend, spec, box, hasPitch }: { backend: DrumsBackend; s
   );
 }
 
-function Readout({ preview }: { preview: Preview | null }) {
+function Readout({ preview, box }: { preview: Preview | null; box: Box }) {
   if (!preview || preview.tailHz <= 0) return null;
-  const { left, top, width } = BOXES.readout;
+  const { left, top, width } = box;
   const line = (y: number, height: number) => ({ left, top: top + y, width, height });
 
   return (
@@ -195,8 +211,22 @@ function Readout({ preview }: { preview: Preview | null }) {
   );
 }
 
+// TailMeter::resized
+function TailMeter({ backend, preview, box }: { backend: DrumsBackend; preview: Preview | null; box: Box }) {
+  const { meterWidth, meterHeight, readoutWidth } = TAIL_METER;
+  const meter = { left: box.left + box.width - meterWidth, top: box.top + centred(box.height, meterHeight), width: meterWidth, height: meterHeight };
+
+  return (
+    <>
+      <Readout preview={preview} box={{ ...box, width: readoutWidth }} />
+      <LevelMeter backend={backend} box={meter} />
+    </>
+  );
+}
+
 export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend }) {
   const { prompt, overlay } = usePrompt();
+  const manual = useManual();
   const { value: instrumentValue } = useParam(backend, 'instrument');
   const instrument = Math.round(instrumentValue);
   const { value: length } = useParam(backend, 'length');
@@ -225,16 +255,16 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
 
   return (
     <div className="relative overflow-hidden bg-background" style={{ width: EDITOR_WIDTH, height: EDITOR_HEIGHT }} data-fonts={fontsLoaded}>
-      <Text style={{ ...BOXES.title, height: 16 }} size={11} bold colour="dim" bottom>
-        SAMPLEREALM
-      </Text>
-      <Text style={{ ...BOXES.title, top: BOXES.title.top + 16, height: 28 }} size={22} bold>
-        DRUMS
-      </Text>
-      <ChoiceButtons backend={backend} id="instrument" box={BOXES.instrument} />
-      <PresetBar presets={backend.presets} prompt={prompt} box={BOXES.presetBar} />
-      <Readout preview={preview} />
-      <LevelMeter backend={backend} box={BOXES.meter} />
+      <HeaderBar
+        title={HEADER_TITLE}
+        width={EDITOR_WIDTH}
+        layout={HEADER_LAYOUT}
+        backend={backend}
+        prompt={prompt}
+        showManual={manual.showManual}
+        switchControl={(box) => <ChoiceButtons backend={backend} id="instrument" box={box} />}
+        meter={(box) => <TailMeter backend={backend} preview={preview} box={box} />}
+      />
 
       <Panel box={BOXES.envelopePanel} />
       <EnvelopeEditor
@@ -258,6 +288,7 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
       ))}
 
       {overlay}
+      {manual.overlay}
     </div>
   );
 });

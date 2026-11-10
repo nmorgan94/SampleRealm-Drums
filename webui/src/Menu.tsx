@@ -1,5 +1,5 @@
 // Mirrors juce::PopupMenu as LookAndFeel_V4 draws it
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { juceHeight } from './fonts.ts';
 import type { Box } from './layout.ts';
 
@@ -126,6 +126,14 @@ function MenuList({ items, placement, onClose }: { items: MenuItem[]; placement:
 }
 
 export type MenuState = Omit<MenuProps, 'onClose'>;
+
+// One menu, which its button opens and closes
+export function useMenu() {
+  const [state, setState] = useState<MenuState | null>(null);
+  const close = useCallback(() => setState(null), []);
+
+  return { isOpen: state !== null, open: setState, close, element: state && <Menu {...state} onClose={close} /> };
+}
 
 interface MenuProps {
   items: MenuItem[];

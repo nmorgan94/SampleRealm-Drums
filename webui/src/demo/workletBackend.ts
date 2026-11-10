@@ -77,7 +77,8 @@ export function workletBackend(info: UiInfo, previewEngine: Engine, factoryPrese
   };
 
   return {
-    version: info.version,
+    info,
+    running: 'Web demo',
     presets,
     envelopes: info.envelopes,
     param: (id) => entry(id).param,

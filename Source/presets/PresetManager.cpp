@@ -117,6 +117,12 @@ namespace srd
         return presets;
     }
 
+    void PresetManager::showUserDirectory() const
+    {
+        config.userDirectory.createDirectory();
+        config.userDirectory.startAsProcess();
+    }
+
     juce::File PresetManager::getUserFile (const juce::String& name) const
     {
         return config.userDirectory.getChildFile (juce::File::createLegalFileName (name.trim()) + config.fileExtension);

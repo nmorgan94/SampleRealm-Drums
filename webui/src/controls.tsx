@@ -1,10 +1,10 @@
 // Mirrors Source/ui/LabeledSlider.h, Controls.h and SegmentedButtons.h as CustomLookAndFeel draws them
-import { forwardRef, useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import type { DrumsBackend } from './backend.ts';
 import { juceHeight } from './fonts.ts';
 import { useParam } from './hooks.ts';
 import { centred, layOutAboveLabel, type Box } from './layout.ts';
-import { Menu, type MenuState } from './Menu.tsx';
+import { useMenu } from './Menu.tsx';
 import { formatValue, fromProportion, parseValue, toProportion } from './params.ts';
 
 // juce::Slider's defaults
@@ -297,14 +297,13 @@ export function Toggle({ backend, id, label, box, enabled = true }: ControlProps
 // juce::ComboBox listing a choice parameter's values, as LookAndFeel_V4 draws it
 export function ChoiceBox({ backend, id, box }: { backend: DrumsBackend; id: string; box: Box }) {
   const { value, commit, param } = useParam(backend, id);
-  const [menu, setMenu] = useState<MenuState | null>(null);
+  const menu = useMenu();
   const button = useRef<HTMLButtonElement>(null);
-  const closeMenu = useCallback(() => setMenu(null), []);
   const current = Math.round(value);
 
   const toggleMenu = () => {
-    if (menu) return setMenu(null);
-    setMenu({
+    if (menu.isOpen) return menu.close();
+    menu.open({
       target: box,
       owner: button.current,
       items: param.choices.map((choice, index) => ({ kind: 'item', label: choice, ticked: index === current, onSelect: () => commit(index) })),
@@ -327,7 +326,7 @@ export function ChoiceBox({ backend, id, box }: { backend: DrumsBackend; id: str
           <path d="M 0 1 L 4 5 L 8 1" stroke="var(--color-dim)" strokeWidth={1.5} fill="none" />
         </svg>
       </button>
-      {menu && <Menu {...menu} onClose={closeMenu} />}
+      {menu.element}
     </>
   );
 }

@@ -184,7 +184,8 @@ juce::WebBrowserComponent::Options WebViewEditor::createOptions()
         options = options.withOptionsFrom (*relay);
 
     return withDrumFunctions (withPresetFunctions (options))
-        .withInitialisationData ("uiInfo", juce::String (uiInfoJson (JucePlugin_VersionString)))
+        .withInitialisationData ("uiInfo", juce::String (uiInfoJson (JucePlugin_VersionString, About::commit)))
+        .withInitialisationData ("running", About::running (processorRef))
         .withInitialisationData ("presetStatus", juce::JSON::toString (presetStatus (processorRef.getPresetManager()), true))
         .withInitialisationData ("envelopes", juce::JSON::toString (envelopesVar (processorRef.getEnvelopeModel()), true))
         .withInitialisationData ("lastNotes", juce::JSON::toString (lastSentNotes, true));
@@ -258,9 +259,7 @@ juce::WebBrowserComponent::Options WebViewEditor::withPresetFunctions (const juc
         }))
         .withNativeFunction ("presetShowFolder", [&presets] (const Args&, Completion complete)
         {
-            const auto folder = presets.getUserDirectory();
-            folder.createDirectory();
-            folder.startAsProcess();
+            presets.showUserDirectory();
             complete ({});
         });
 }

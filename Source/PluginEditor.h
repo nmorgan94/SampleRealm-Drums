@@ -2,13 +2,15 @@
 
 #include "PluginProcessor.h"
 #include "dsp/PreviewRenderer.h"
+#include "ui/About.h"
 #include "ui/Controls.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/EnvelopeEditor.h"
-#include "ui/LevelMeter.h"
+#include "ui/HeaderBar.h"
+#include "ui/Manual.h"
 #include "ui/Panel.h"
-#include "ui/PresetBar.h"
 #include "ui/PromptOverlay.h"
+#include "ui/TailMeter.h"
 #include "ui/TriggerPad.h"
 #include "ui/Waveform.h"
 
@@ -19,6 +21,12 @@ class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
 {
 public:
     static constexpr int width = 1080, height = 610;
+
+    // As HEADER_TITLE and HEADER_LAYOUT in webui/src/Editor.tsx
+    inline static const srd::HeaderBar::Title headerTitle { "SAMPLEREALM", "DRUMS" };
+    static constexpr srd::HeaderBar::Layout headerLayout { .height = 68, .edge = 16, .titleWidth = 150, .titleHeight = 22.0f,
+                                                           .switchWidth = 220, .gap = 22, .controlsHeight = 30, .menuWidth = 28, .menuGap = 4,
+                                                           .meterWidth = srd::TailMeter::preferredWidth, .meterInset = 12 };
 
     explicit AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor&);
     ~AudioPluginAudioProcessorEditor() override;
@@ -34,14 +42,15 @@ private:
     juce::AudioProcessorValueTreeState& apvts;
 
     CustomLookAndFeel customLookAndFeel;
+    CustomLookAndFeel overlayLookAndFeel; // labels in the bright text colour
 
     // Top bar
     srd::PromptOverlay prompt;
+    srd::ManualOverlay manual;
     srd::ChoiceButtons instrumentSwitch { apvts, Parameters::instrumentId };
-    srd::PresetBar presetBar { processorRef.getPresetManager(), prompt };
-    srd::LevelMeter outputMeter { processorRef.getOutputMeter() };
-    juce::String tailNote, tailHz;
-    juce::Rectangle<int> titleArea, readoutArea;
+    srd::TailMeter tailMeter { processorRef.getOutputMeter() };
+    srd::HeaderBar header { headerTitle, headerLayout, instrumentSwitch, processorRef.getPresetManager(), prompt,
+                            [this] { manual.show(); }, About::text (processorRef), tailMeter };
 
     // The instrument's envelopes, drawn together over a preview of one hit
     srd::EnvelopeEditor envelopeEditor { processorRef.getEnvelopeModel() };

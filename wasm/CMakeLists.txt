@@ -61,6 +61,7 @@ CPMAddPackage(
 
 add_executable(Engine
     Engine.cpp
+    BuildCommit.cpp
     ../Source/dsp/ClickGenerator.cpp
     ../Source/dsp/CymbalVoice.cpp
     ../Source/dsp/Drive.cpp
@@ -71,6 +72,9 @@ add_executable(Engine
     ../Source/dsp/SnareVoice.cpp)
 
 target_include_directories(Engine PRIVATE ../Source)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/BuildInfo.cmake)
+add_build_info(Engine)
 
 target_compile_definitions(Engine PRIVATE JUCE_STANDALONE_APPLICATION=1 PLUGIN_VERSION="${pluginVersion}")
 

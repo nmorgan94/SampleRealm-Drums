@@ -104,6 +104,17 @@ On the first configure, CMake downloads JUCE, pluginval and Catch2 automatically
 
 `run` and `install-windows` use the Debug build, so run `cmake --workflow --preset debug` once first.
 
+## Manual
+
+`Assets/Manual.md` is what **... → Manual** shows, in the native editor, the WebView editor and the
+demo. Only this much Markdown is read:
+
+- `# ` heading, `## ` subheading, `- ` bullet
+- Any other line is text, joined to the paragraph or bullet above until a blank line
+- No inline formatting, links or images
+
+`Source/ui/Manual.cpp` and `webui/src/manual.ts` parse it; their tests share one sample, so change both together.
+
 ## Presets
 
 Factory presets are `.srdrum` files in `Assets/Presets/`. They're embedded into the plugin at build time along with everything else in `Assets/`.

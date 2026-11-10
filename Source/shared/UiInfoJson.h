@@ -3,11 +3,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <string>
+#include "BuildType.h"
 #include "DrumEnvelopes.h"
 #include "ParameterSpecs.h"
 
 //==============================================================================
-inline std::string uiInfoJson (const char* version)
+inline std::string uiInfoJson (const char* version, const char* commit)
 {
     const auto quoted = [] (const char* text)
     {
@@ -65,7 +66,8 @@ inline std::string uiInfoJson (const char* version)
         return "suffix";
     };
 
-    std::string json = "{\"version\":" + quoted (version)
+    std::string json = "{\"version\":" + quoted (version) + ",\"commit\":" + quoted (commit)
+                     + ",\"build\":" + quoted (BuildType::name)
                      + ",\"minusInfinityDb\":" + number (ParameterSpecs::minusInfinityDb) + ",\"params\":[";
 
     for (size_t i = 0; i < ParameterSpecs::all.size(); ++i)

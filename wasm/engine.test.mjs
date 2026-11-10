@@ -54,10 +54,12 @@ const frequency = (samples) => {
 const seconds = (s) => Math.round(s * sampleRate);
 
 //==============================================================================
-test('the ui info carries the version, every parameter in host order and every envelope', () => {
+test('the ui info carries the version, the commit, the build type, every parameter in host order and every envelope', () => {
   const { info } = engine();
 
   assert.match(info.version, /^\d+\.\d+\.\d+$/);
+  assert.match(info.commit, /^([0-9a-f]{7,}(-local)?|unknown)$/);
+  assert.match(info.build, /^(Debug|Release)$/);
   assert.equal(info.minusInfinityDb, -60);
   assert.deepEqual(info.params.map((p) => p.id), [
     'instrument', 'outputGain', 'tune', 'keyTrack', 'length', 'pitchDepth',

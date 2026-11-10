@@ -2,7 +2,7 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Text } from './Text.tsx';
 
-const TITLE_HEIGHT = 24;
+export const TITLE_HEIGHT = 24;
 
 interface ModalProps {
   // Also the title, drawn at titleInset in the panel

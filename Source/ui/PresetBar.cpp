@@ -1,16 +1,17 @@
 #include "PresetBar.h"
+#include "PresetActions.h"
 
 namespace srd
 {
-    PresetBar::PresetBar (PresetManager& p, PromptOverlay& o) : presets (p), prompt (o)
+    PresetBar::PresetBar (PresetManager& p, PresetActions& a)
+        : presets (p), actions (a)
     {
         previousButton.onClick = [this] { presets.loadPrevious(); };
         nextButton.onClick     = [this] { presets.loadNext(); };
         nameButton.onClick     = [this] { showPresetMenu(); };
-        saveButton.onClick     = [this] { save(); };
-        moreButton.onClick     = [this] { showMoreMenu(); };
+        saveButton.onClick     = [this] { actions.save(); };
 
-        for (auto* b : { &previousButton, &nextButton, &nameButton, &saveButton, &moreButton })
+        for (auto* b : { &previousButton, &nextButton, &nameButton, &saveButton })
             addAndMakeVisible (b);
 
         updateName();
@@ -21,13 +22,11 @@ namespace srd
     {
         auto bounds = getLocalBounds();
 
-        moreButton.setBounds (bounds.removeFromRight (32));
-        bounds.removeFromRight (4);
-        saveButton.setBounds (bounds.removeFromRight (60));
+        saveButton.setBounds (bounds.removeFromRight (48));
         bounds.removeFromRight (8);
 
-        previousButton.setBounds (bounds.removeFromLeft (28));
-        nextButton.setBounds (bounds.removeFromRight (28));
+        previousButton.setBounds (bounds.removeFromLeft (24));
+        nextButton.setBounds (bounds.removeFromRight (24));
         nameButton.setBounds (bounds.reduced (4, 0));
     }
 
@@ -103,93 +102,7 @@ namespace srd
                             [safeThis = juce::Component::SafePointer (this), listed = std::move (presetList)] (int result)
                             {
                                 if (safeThis != nullptr && result > 0)
-                                    safeThis->presets.loadPreset (listed.getReference (result - 1));
+                                    safeThis->actions.load (listed.getReference (result - 1));
                             });
-    }
-
-    void PresetBar::showMoreMenu()
-    {
-        const auto user = currentUserPreset();
-
-        juce::PopupMenu menu;
-        menu.setLookAndFeel (&getLookAndFeel());
-        menu.addItem ("Init Preset", [this] { presets.loadInit(); });
-        menu.addSeparator();
-        menu.addItem ("Save As...", [this] { saveAs(); });
-        menu.addItem ("Rename...", user.has_value(), false, [this, user] { rename (*user); });
-        menu.addItem ("Delete", user.has_value(), false, [this, user] { remove (*user); });
-        menu.addSeparator();
-        menu.addItem ("Show Preset Folder", [this]
-        {
-            const auto folder = presets.getUserDirectory();
-            folder.createDirectory();
-            folder.startAsProcess();
-        });
-
-        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (moreButton));
-    }
-
-    //==============================================================================
-    void PresetBar::save()
-    {
-        // User presets save in place; anything else needs a name first
-        if (const auto user = currentUserPreset())
-            report (presets.saveUserPreset (user->name, user->category));
-        else
-            saveAs();
-    }
-
-    std::optional<PresetManager::Preset> PresetBar::currentUserPreset() const
-    {
-        if (auto current = presets.getCurrentPreset(); current.has_value() && ! current->isFactory)
-            return current;
-
-        return std::nullopt;
-    }
-
-    void PresetBar::saveAs()
-    {
-        // Factory names are reserved, so don't suggest one
-        const auto current = presets.getCurrent();
-        const auto suggestion = current.isFactory ? juce::String() : current.name;
-
-        prompt.askForText ("Save Preset", suggestion, "Save", [this] (const juce::String& name)
-        {
-            if (! presets.userPresetExists (name))
-            {
-                saveAs (name);
-                return;
-            }
-
-            prompt.askToConfirm ("Replace Preset", "\"" + name.trim() + "\" already exists. Replace it?", "Replace",
-                                 [this, name] { saveAs (name); });
-        });
-    }
-
-    void PresetBar::saveAs (const juce::String& name)
-    {
-        report (presets.saveUserPreset (name, presets.getCurrent().category));
-    }
-
-    void PresetBar::rename (const PresetManager::Preset& preset)
-    {
-        prompt.askForText ("Rename Preset", preset.name, "Rename", [this, preset] (const juce::String& name)
-        {
-            report (presets.renameUserPreset (preset, name));
-        });
-    }
-
-    void PresetBar::remove (const PresetManager::Preset& preset)
-    {
-        prompt.askToConfirm ("Delete Preset", "Delete \"" + preset.name + "\"?", "Delete",
-                             [this, preset] { report (presets.deleteUserPreset (preset)); });
-    }
-
-    void PresetBar::report (const juce::Result& result)
-    {
-        if (result.failed())
-            prompt.showMessage ("Preset", result.getErrorMessage());
-
-        updateName();
     }
 }

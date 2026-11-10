@@ -28,7 +28,7 @@ public:
 
     CustomLookAndFeel();
 
-    juce::Font font (float height, bool bold = false) const;
+    static juce::Font font (float height, bool bold = false);
 
     //==============================================================================
     juce::Font getLabelFont (juce::Label&) override;
@@ -43,7 +43,5 @@ public:
                                bool isMouseOverButton, bool isButtonDown) override;
 
 private:
-    juce::Typeface::Ptr regular, bold;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CustomLookAndFeel)
 };

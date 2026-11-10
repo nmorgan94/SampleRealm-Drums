@@ -55,7 +55,8 @@ namespace srd
 
         /** Factory then user presets, only of the current type when types are in use. */
         juce::Array<Preset> getPresets() const;
-        juce::File getUserDirectory() const                             { return config.userDirectory; }
+        /** Opens the user folder, creating it first. */
+        void showUserDirectory() const;
 
         /** Resets everything but the type parameter to defaults, named "Init". */
         void loadInit();

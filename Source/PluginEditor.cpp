@@ -45,10 +45,7 @@ namespace
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p), apvts (p.getAPVTS())
 {
-    // Top bar
-    addAndMakeVisible (instrumentSwitch);
-    addAndMakeVisible (presetBar);
-    addAndMakeVisible (outputMeter);
+    addAndMakeVisible (header);
 
     // Pitch envelopes read in Hz and note names, level envelopes as percentages
     const auto isPitch = [this] (std::size_t env)
@@ -117,8 +114,12 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     triggerPad.onTrigger = [this] { processorRef.triggerAudition(); };
     addAndMakeVisible (triggerPad);
 
+    overlayLookAndFeel.setColour (juce::Label::textColourId, CustomLookAndFeel::Palette::text);
+    prompt.setLookAndFeel (&overlayLookAndFeel);
+    manual.setLookAndFeel (&overlayLookAndFeel);
     prompt.setFont (customLookAndFeel.font (14.0f));
     addChildComponent (prompt);
+    addChildComponent (manual);
 
     setLookAndFeel (&customLookAndFeel);
 
@@ -220,12 +221,7 @@ void AudioPluginAudioProcessorEditor::updatePreview()
         newHz = srd::params::hertzText (preview.tailHz);
     }
 
-    if (newNote != tailNote || newHz != tailHz)
-    {
-        tailNote = newNote;
-        tailHz = newHz;
-        repaint (readoutArea);
-    }
+    tailMeter.setTail (newNote, newHz);
 }
 
 void AudioPluginAudioProcessorEditor::timerCallback()
@@ -244,31 +240,6 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (Palette::background);
 
-    // Title
-    auto title = titleArea;
-
-    g.setColour (Palette::textDim);
-    g.setFont (customLookAndFeel.font (11.0f, true));
-    g.drawText ("SAMPLEREALM", title.removeFromTop (16), juce::Justification::bottomLeft);
-    g.setColour (Palette::text);
-    g.setFont (customLookAndFeel.font (22.0f, true));
-    g.drawText ("DRUMS", title, juce::Justification::centredLeft);
-
-    // Tail readout: where the last note played (and the Hit pad) settles
-    if (tailNote.isNotEmpty())
-    {
-        auto readout = readoutArea;
-        g.setColour (Palette::textDim);
-        g.setFont (customLookAndFeel.font (11.0f, true));
-        g.drawText ("TAIL", readout.removeFromTop (16), juce::Justification::centredRight);
-        g.setColour (Palette::accent);
-        g.setFont (customLookAndFeel.font (18.0f, true));
-        g.drawText (tailNote, readout.removeFromTop (22), juce::Justification::centredRight);
-        g.setColour (Palette::textDim);
-        g.setFont (customLookAndFeel.font (11.0f));
-        g.drawText (tailHz, readout, juce::Justification::centredRight);
-    }
-
     // Envelope panel
     const auto envelopeArea = envelopeEditor.getBounds().expanded (8).toFloat();
     g.setColour (Palette::panel);
@@ -279,18 +250,10 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 
 void AudioPluginAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced (16, 12);
+    auto bounds = getLocalBounds();
 
-    // Top bar
-    auto top = bounds.removeFromTop (44);
-    titleArea = top.removeFromLeft (150);
-    instrumentSwitch.setBounds (top.removeFromLeft (220).withSizeKeepingCentre (220, 30));
-    outputMeter.setBounds (top.removeFromRight (14).withSizeKeepingCentre (14, 40));
-    top.removeFromRight (10);
-    readoutArea = top.removeFromRight (150);
-    presetBar.setBounds (top.withSizeKeepingCentre (std::min (top.getWidth() - 24, 460), 30));
-
-    bounds.removeFromTop (14);
+    header.setBounds (bounds.removeFromTop (headerLayout.height));
+    bounds = bounds.reduced (16, 0).withTrimmedTop (2).withTrimmedBottom (12);
 
     // Sound panels along the bottom, sized by their number of controls
     constexpr int gap = 10;

@@ -4,7 +4,7 @@ import { paramLookup, type DrumsBackend, type EnvelopeNode, type Level, type Pre
 import { toProportion } from '../params.ts';
 
 // JUCE's type lists only its own initialisation data
-type InitialisationData = { uiInfo: string[]; presetStatus: string[]; envelopes: string[]; lastNotes: string[] };
+type InitialisationData = { uiInfo: string[]; running: string[]; presetStatus: string[]; envelopes: string[]; lastNotes: string[] };
 
 const call = (name: string, ...args: unknown[]) => getNativeFunction(name)(...args);
 
@@ -74,7 +74,8 @@ export function juceBackend(): DrumsBackend {
   listen('lastNotes', (payload) => (lastNotes = payload as number[]));
 
   return {
-    version: info.version,
+    info,
+    running: data.running[0]!,
     presets: jucePresets(JSON.parse(data.presetStatus[0]!) as PresetStatus),
     param,
     getValue: (id) => slider(id).getScaledValue(),

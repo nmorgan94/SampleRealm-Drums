@@ -38,6 +38,8 @@ export interface EnvelopeInfo {
 
 export interface UiInfo {
   version: string;
+  commit: string;
+  build: 'Debug' | 'Release';
   minusInfinityDb: number;
   params: ParamInfo[];
   envelopes: EnvelopeInfo[];
@@ -89,7 +91,9 @@ export interface PresetBackend {
 export const isSamePreset = (a: PresetEntry, b: PresetEntry) => a.name === b.name && a.isFactory === b.isFactory;
 
 export interface DrumsBackend {
-  version: string;
+  info: UiInfo;
+  // "VST3 in Ableton Live", or where else the editor is running
+  running: string;
   presets: PresetBackend;
   param(id: string): ParamInfo;
   // Real values, not 0..1

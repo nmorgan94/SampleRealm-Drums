@@ -1,16 +1,16 @@
 #include "CustomLookAndFeel.h"
 #include "EnvelopeEditor.h"
+#include "HeaderBar.h"
 #include "LevelMeter.h"
+#include "ModalOverlay.h"
 #include "Panel.h"
-#include "PromptOverlay.h"
+#include "TailMeter.h"
 #include "TriggerPad.h"
 #include <BinaryData.h>
 
 CustomLookAndFeel::CustomLookAndFeel()
     : LookAndFeel_V4 (ColourScheme (Palette::background, Palette::raised, Palette::panel, Palette::outline, Palette::text,
-                                    Palette::raised, Palette::background, Palette::accent, Palette::text)),
-      regular (juce::Typeface::createSystemTypefaceFor (BinaryData::OrbitronRegular_ttf, BinaryData::OrbitronRegular_ttfSize)),
-      bold    (juce::Typeface::createSystemTypefaceFor (BinaryData::OrbitronBold_ttf, BinaryData::OrbitronBold_ttfSize))
+                                    Palette::raised, Palette::background, Palette::accent, Palette::text))
 {
     using P = Palette;
 
@@ -48,17 +48,26 @@ CustomLookAndFeel::CustomLookAndFeel()
         { srd::LevelMeter::barColourId,                  P::accentAlt },
         { srd::LevelMeter::clipColourId,                 P::clip },
 
-        { srd::PromptOverlay::dimColourId,               P::background.withAlpha (0.75f) },
-        { srd::PromptOverlay::panelColourId,             P::panel },
-        { srd::PromptOverlay::outlineColourId,           P::outline },
+        { srd::ModalOverlay::dimColourId,                P::background.withAlpha (0.75f) },
+        { srd::ModalOverlay::panelColourId,              P::panel },
+        { srd::ModalOverlay::outlineColourId,            P::outline },
+
+        { srd::HeaderBar::backgroundColourId,            P::background },
+        { srd::HeaderBar::titleColourId,                 P::text },
+        { srd::HeaderBar::subtitleColourId,              P::textDim },
+        { srd::TailMeter::labelColourId,                 P::textDim },
+        { srd::TailMeter::noteColourId,                  P::accent },
     };
 
     for (const auto& [id, colour] : colours)
         setColour (id, colour);
 }
 
-juce::Font CustomLookAndFeel::font (float height, bool isBold) const
+juce::Font CustomLookAndFeel::font (float height, bool isBold)
 {
+    static const auto regular = juce::Typeface::createSystemTypefaceFor (BinaryData::OrbitronRegular_ttf, BinaryData::OrbitronRegular_ttfSize);
+    static const auto bold    = juce::Typeface::createSystemTypefaceFor (BinaryData::OrbitronBold_ttf, BinaryData::OrbitronBold_ttfSize);
+
     return juce::Font (juce::FontOptions (isBold ? bold : regular).withHeight (height));
 }
 

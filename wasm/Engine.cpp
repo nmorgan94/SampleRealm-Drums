@@ -3,6 +3,9 @@
 #include "shared/DrumSettings.h"
 #include "shared/UiInfoJson.h"
 
+// BuildCommit.cpp
+extern const char* const buildCommit;
+
 //==============================================================================
 namespace
 {
@@ -48,7 +51,7 @@ namespace
 
 EXPORT (uiInfo) const char* uiInfo()
 {
-    static const auto json = uiInfoJson (PLUGIN_VERSION);
+    static const auto json = uiInfoJson (PLUGIN_VERSION, buildCommit);
     return json.c_str();
 }
 

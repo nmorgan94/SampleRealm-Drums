@@ -1,41 +1,32 @@
 #pragma once
 
 #include "../presets/PresetManager.h"
-#include "PromptOverlay.h"
 
 namespace srd
 {
+    class PresetActions;
+
     //==============================================================================
     /**
-     * Preset browsing and management for a PresetManager.
+     * Preset browsing for a PresetManager, and a Save button.
      */
     class PresetBar : public juce::Component,
                       private juce::Timer
     {
     public:
-        PresetBar (PresetManager&, PromptOverlay&);
+        PresetBar (PresetManager&, PresetActions&);
 
         void resized() override;
 
     private:
         PresetManager& presets;
-        PromptOverlay& prompt;
+        PresetActions& actions;
 
-        juce::TextButton previousButton { "<" }, nextButton { ">" }, nameButton,
-                         saveButton { "Save" }, moreButton { "..." };
+        juce::TextButton previousButton { "<" }, nextButton { ">" }, nameButton, saveButton { "Save" };
         juce::uint32 lastChange = 0;
 
         void updateName();
         void showPresetMenu();
-        void showMoreMenu();
-
-        void save();
-        void saveAs();
-        void saveAs (const juce::String& name);
-        void rename (const PresetManager::Preset&);
-        void remove (const PresetManager::Preset&);
-        std::optional<PresetManager::Preset> currentUserPreset() const;
-        void report (const juce::Result&);
 
         void timerCallback() override;
 
