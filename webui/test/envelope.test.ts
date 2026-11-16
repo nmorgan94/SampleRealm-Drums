@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import {
   applyCurve, evaluate, formatTime, gridStep, gridValues, insertNode, MAX_NODES, MIN_GAP, removeNode, sanitise, setNode, toDomainNodes, viewSeconds,
 } from '../src/envelope.ts';
-import { info } from './engine.ts';
+import { drums } from './engine.ts';
 
-const pitch = info.envelopes.find((e) => e.id === 'pitch')!;
-const amp = info.envelopes.find((e) => e.id === 'amp')!;
+const pitch = drums.envelopes.find((e) => e.id === 'pitch')!;
+const amp = drums.envelopes.find((e) => e.id === 'amp')!;
 
 test('curves bend each segment, 0 staying linear', () => {
   assert.equal(applyCurve(0.5, 0), 0.5);

@@ -1,8 +1,6 @@
 #include "CustomLookAndFeel.h"
 #include "EnvelopeEditor.h"
-#include "HeaderBar.h"
-#include "LevelMeter.h"
-#include "ModalOverlay.h"
+#include "HeaderTitle.h"
 #include "Panel.h"
 #include "TailMeter.h"
 #include "TriggerPad.h"
@@ -43,18 +41,18 @@ CustomLookAndFeel::CustomLookAndFeel()
         { srd::TriggerPad::backgroundColourId,           P::raised },
         { srd::TriggerPad::flashColourId,                P::accent },
         { srd::TriggerPad::textColourId,                 P::text },
-        { srd::LevelMeter::backgroundColourId,           P::panel },
-        { srd::LevelMeter::outlineColourId,              P::outline },
-        { srd::LevelMeter::barColourId,                  P::accentAlt },
-        { srd::LevelMeter::clipColourId,                 P::clip },
+        { LevelMeter::backgroundColourId,                P::panel },
+        { LevelMeter::outlineColourId,                   P::outline },
+        { LevelMeter::barColourId,                       P::accentAlt },
+        { LevelMeter::clipColourId,                      P::clip },
 
-        { srd::ModalOverlay::dimColourId,                P::background.withAlpha (0.75f) },
-        { srd::ModalOverlay::panelColourId,              P::panel },
-        { srd::ModalOverlay::outlineColourId,            P::outline },
+        { ModalOverlay::dimColourId,                     P::background.withAlpha (0.75f) },
+        { ModalOverlay::panelColourId,                   P::panel },
+        { ModalOverlay::outlineColourId,                 P::outline },
 
-        { srd::HeaderBar::backgroundColourId,            P::background },
-        { srd::HeaderBar::titleColourId,                 P::text },
-        { srd::HeaderBar::subtitleColourId,              P::textDim },
+        { HeaderBar::backgroundColourId,                 P::background },
+        { srd::HeaderTitle::titleColourId,               P::text },
+        { srd::HeaderTitle::subtitleColourId,            P::textDim },
         { srd::TailMeter::labelColourId,                 P::textDim },
         { srd::TailMeter::noteColourId,                  P::accent },
     };

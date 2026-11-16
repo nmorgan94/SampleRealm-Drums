@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { juceHeight } from './fonts.ts';
+import { juceHeight } from '@samplerealm/modules/editor/fonts.ts';
 
 // Literal class names, so Tailwind finds them
 const COLOURS = { dim: 'text-dim', accent: 'text-accent' };

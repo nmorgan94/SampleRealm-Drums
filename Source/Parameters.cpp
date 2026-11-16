@@ -1,45 +1,63 @@
 #include "Parameters.h"
-#include "params/ParameterFormats.h"
 
 //==============================================================================
 namespace
 {
-    using ParameterSpecs::Spec;
-
-    juce::AudioParameterFloatAttributes textFunctions (const Spec& spec)
+    juce::String number (float value, int decimals)
     {
-        switch (spec.format)
-        {
-            case ParameterSpecs::Format::decibels: return srd::params::decibels (ParameterSpecs::minusInfinityDb);
-            case ParameterSpecs::Format::hertz:    return srd::params::hertz();
-            case ParameterSpecs::Format::suffix:   break;
-        }
+        if (decimals <= 0)
+            return juce::String (juce::roundToInt (value));
 
-        return srd::params::withSuffix (juce::String::fromUTF8 (spec.suffix), spec.decimals);
-    }
-
-    std::unique_ptr<juce::RangedAudioParameter> makeParameter (const Spec& spec)
-    {
-        const juce::ParameterID id { spec.id, Parameters::versionHint };
-
-        if (spec.kind == ParameterSpecs::Kind::choice)
-            return std::make_unique<juce::AudioParameterChoice> (
-                id, spec.name, juce::StringArray (spec.choices.data(), static_cast<int> (spec.choices.size())),
-                juce::roundToInt (spec.defaultValue),
-                juce::AudioParameterChoiceAttributes().withAutomatable (spec.automatable));
-
-        return std::make_unique<juce::AudioParameterFloat> (
-            id, spec.name, rangeOf (spec), spec.defaultValue, textFunctions (spec).withAutomatable (spec.automatable));
+        auto text = juce::String (value, decimals);
+        return text.containsOnly ("-0.") ? text.trimCharactersAtStart ("-") : text;
     }
 }
 
-//==============================================================================
-juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createLayout()
+juce::String Parameters::hertzText (float hz)
 {
-    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    if (hz >= 1000.0f)
+        return number (hz / 1000.0f, 2) + " kHz";
 
-    for (const auto* spec : ParameterSpecs::all)
-        layout.add (makeParameter (*spec));
+    return number (hz, hz < 100.0f ? 1 : 0) + " Hz";
+}
 
-    return layout;
+// Each has a matching parser, so typed values read back
+juce::AudioParameterFloatAttributes Parameters::withValueText (const ParameterSpecs::Spec& spec, juce::AudioParameterFloatAttributes attributes)
+{
+    using ParameterSpecs::minusInfinityDb;
+    const auto& drumSpec = ParameterSpecs::drumSpecOf (spec);
+
+    switch (drumSpec.format)
+    {
+        case ParameterSpecs::Format::decibels:
+            return attributes
+                .withStringFromValueFunction ([] (float value, int)
+                {
+                    return value <= minusInfinityDb + 0.05f ? juce::String ("-inf dB") : number (value, 1) + " dB";
+                })
+                .withValueFromStringFunction ([] (const juce::String& text)
+                {
+                    return text.containsIgnoreCase ("inf") ? minusInfinityDb : text.getFloatValue();
+                });
+
+        case ParameterSpecs::Format::hertz:
+            return attributes
+                .withStringFromValueFunction ([] (float value, int) { return hertzText (value); })
+                .withValueFromStringFunction ([] (const juce::String& text)
+                {
+                    const auto value = text.getFloatValue();
+                    return text.containsIgnoreCase ("k") ? value * 1000.0f : value;
+                });
+
+        case ParameterSpecs::Format::suffix:
+            break;
+    }
+
+    // getFloatValue reads the leading number and ignores the suffix
+    return attributes
+        .withStringFromValueFunction ([suffix = juce::String::fromUTF8 (drumSpec.suffix), decimals = drumSpec.decimals] (float value, int)
+        {
+            return number (value, decimals) + suffix;
+        })
+        .withValueFromStringFunction ([] (const juce::String& text) { return text.getFloatValue(); });
 }

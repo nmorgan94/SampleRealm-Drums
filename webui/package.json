@@ -10,10 +10,11 @@
     "build:demo": "vite build --mode demo",
     "serve": "vite --mode demo",
     "typecheck": "tsc --noEmit",
-    "test": "node --test 'test/**/*.test.ts'"
+    "test": "node --import @samplerealm/modules/testing/typescript.mjs --test 'test/**/*.test.ts'"
   },
   "dependencies": {
     "@juce-framework/webview": "1.0.0",
+    "@samplerealm/modules": "github:nmorgan94/SampleRealm-Modules#e685f5eb49ff6d797294cf4479ac6a541bfd05cd",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },

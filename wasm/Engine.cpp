@@ -1,32 +1,23 @@
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <samplerealm/BuildCommit.h>
+#include <samplerealm/ParameterValues.h>
+#include <samplerealm/PeakMeter.h>
+#include <samplerealm/UiInfoJson.h>
+#include <samplerealm/WasmExport.h>
 #include "dsp/PreviewRenderer.h"
+#include "shared/DrumInfoJson.h"
 #include "shared/DrumSettings.h"
-#include "shared/UiInfoJson.h"
-
-// BuildCommit.cpp
-extern const char* const buildCommit;
 
 //==============================================================================
 namespace
 {
     constexpr int maxBlockSize = 128;
 
-    // In ParameterSpecs::all's order
-    auto values = []
-    {
-        std::array<float, ParameterSpecs::all.size()> defaults;
-        std::ranges::transform (ParameterSpecs::all, defaults.begin(), &ParameterSpecs::Spec::defaultValue);
-        return defaults;
-    }();
-
-    float valueOf (const ParameterSpecs::Spec& spec)
-    {
-        return values[ParameterSpecs::indexOf (spec)];
-    }
+    ParameterValues values { ParameterSpecs::all };
 
     DrumSynth::Settings currentSettings()
     {
-        return makeDrumSettings (valueOf);
+        return makeDrumSettings (values);
     }
 
     const auto envelopeSpecs = DrumEnvelopes::createSpecs();
@@ -38,7 +29,9 @@ namespace
     std::array<srd::EnvelopeNode, srd::EnvelopeData::maxNodes> nodeScratch {};
 
     DrumSynth synth;
-    std::array<float, maxBlockSize> output {};
+    PeakMeter meter { 1 };
+    // Mono: the page copies the one channel to each of its outputs
+    juce::AudioBuffer<float> buffer { 1, maxBlockSize };
 
     // Played at the start of the next block
     juce::MidiBuffer pendingMidi;
@@ -47,33 +40,38 @@ namespace
     PreviewRenderer::Preview lastPreview;
 }
 
-#define EXPORT(name) extern "C" __attribute__ ((export_name (#name)))
-
-EXPORT (uiInfo) const char* uiInfo()
+WASM_EXPORT (uiInfo) const char* uiInfo()
 {
-    static const auto json = uiInfoJson (PLUGIN_VERSION, buildCommit);
+    static const auto json = uiInfoJson (ParameterSpecs::all, PLUGIN_VERSION, buildCommit);
     return json.c_str();
 }
 
-EXPORT (prepare) void prepare (double sampleRate)
+// How each value reads, and the envelopes
+WASM_EXPORT (drumInfo) const char* drumInfo()
+{
+    static const auto json = drumInfoJson();
+    return json.c_str();
+}
+
+// Always one channel, whatever the page asks for
+WASM_EXPORT (prepare) void prepare (double sampleRate, int)
 {
     synth.prepare (sampleRate, maxBlockSize, currentSettings());
     previewRenderer.prepare();
 }
 
-EXPORT (setParam) void setParam (int index, float value)
+WASM_EXPORT (setParam) void setParam (int index, float value)
 {
-    if (index >= 0 && index < std::ssize (values))
-        values[index] = value;
+    values.set (index, value);
 }
 
-EXPORT (envelopeNodes) srd::EnvelopeNode* envelopeNodes()
+WASM_EXPORT (envelopeNodes) srd::EnvelopeNode* envelopeNodes()
 {
     return nodeScratch.data();
 }
 
 // Takes the first numNodes of envelopeNodes(), each { time, value, curve }
-EXPORT (setEnvelope) void setEnvelope (int env, int numNodes)
+WASM_EXPORT (setEnvelope) void setEnvelope (int env, int numNodes)
 {
     if (env < 0 || env >= std::ssize (envelopeSpecs) || numNodes < 0 || numNodes > std::ssize (nodeScratch))
         return;
@@ -87,7 +85,7 @@ EXPORT (setEnvelope) void setEnvelope (int env, int numNodes)
     synth.setEnvelope (env, envelopes[env]);
 }
 
-EXPORT (midi) void midi (int status, int data1, int data2)
+WASM_EXPORT (midi) void midi (int status, int data1, int data2)
 {
     if (status < 0x80 || status >= 0xf0)
         return;
@@ -95,50 +93,62 @@ EXPORT (midi) void midi (int status, int data1, int data2)
     pendingMidi.addEvent (juce::MidiMessage (status, data1 & 0x7f, data2 & 0x7f), 0);
 }
 
-EXPORT (audition) void audition()
+WASM_EXPORT (audition) void audition()
 {
     synth.audition();
 }
 
-EXPORT (hitCount) juce::uint32 hitCount()
+WASM_EXPORT (hitCount) juce::uint32 hitCount()
 {
     return synth.getHitCount();
 }
 
-EXPORT (lastNote) int lastNote()
+WASM_EXPORT (lastNote) int lastNote()
 {
-    return synth.getLastNote (ParameterSpecs::instrumentFromIndex (juce::roundToInt (valueOf (ParameterSpecs::instrument))));
+    return synth.getLastNote (ParameterSpecs::instrumentFromIndex (juce::roundToInt (values (ParameterSpecs::instrument))));
 }
 
-EXPORT (render) float* render (int numSamples)
+// The output is read back from here after render, for any channel the page asks for
+WASM_EXPORT (channel) float* channel (int)
+{
+    return buffer.getWritePointer (0);
+}
+
+WASM_EXPORT (render) void render (int numSamples)
 {
     const auto length = std::clamp (numSamples, 0, maxBlockSize);
+    juce::AudioBuffer<float> block { buffer.getArrayOfWritePointers(), 1, length };
 
     synth.setSettings (currentSettings());
-    synth.process (output.data(), length, pendingMidi);
+    synth.process (block.getWritePointer (0), length, pendingMidi);
     pendingMidi.clear();
+    meter.process (block);
+}
 
-    return output.data();
+// The loudest output sample since the last call, as linear gain
+WASM_EXPORT (peak) float peak (int index)
+{
+    return index == 0 ? meter.readAndReset (0) : 0.0f;
 }
 
 // One hit for the waveform: previewLength() samples at previewSampleRate()
-EXPORT (preview) const float* preview (int note, float maxSeconds)
+WASM_EXPORT (preview) const float* preview (int note, float maxSeconds)
 {
     lastPreview = previewRenderer.render (currentSettings(), envelopes, note, maxSeconds);
     return lastPreview.samples;
 }
 
-EXPORT (previewLength) int previewLength()
+WASM_EXPORT (previewLength) int previewLength()
 {
     return lastPreview.numSamples;
 }
 
-EXPORT (previewTailHz) float previewTailHz()
+WASM_EXPORT (previewTailHz) float previewTailHz()
 {
     return lastPreview.tailHz;
 }
 
-EXPORT (previewSampleRate) double previewSampleRate()
+WASM_EXPORT (previewSampleRate) double previewSampleRate()
 {
     return PreviewRenderer::sampleRate;
 }

@@ -1,16 +1,20 @@
 // Mirrors Source/PluginEditor.cpp, with the boxes resized() gives
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { EditorRootContext } from '@samplerealm/modules/editor/editorRoot.ts';
+import { HeaderBar, type HeaderLayout } from '@samplerealm/modules/editor/HeaderBar.tsx';
+import { useParam } from '@samplerealm/modules/editor/hooks.ts';
+import { centred, type Rect } from '@samplerealm/modules/editor/layout.ts';
+import { LevelMeter } from '@samplerealm/modules/editor/LevelMeter.tsx';
+import { useManual } from '@samplerealm/modules/editor/ManualOverlay.tsx';
+import { usePrompt } from '@samplerealm/modules/editor/PromptOverlay.tsx';
+import manualText from '../../Assets/Manual.md?raw';
 import type { DrumsBackend, Preview } from './backend.ts';
 import { ChoiceBox, ChoiceButtons, Knob, Toggle } from './controls.tsx';
 import { EnvelopeEditor, type Curve } from './EnvelopeEditor.tsx';
-import { HeaderBar, type HeaderLayout, type HeaderTitle } from './HeaderBar.tsx';
-import { useHits, useParam } from './hooks.ts';
-import { centred, layOutRow, type Box } from './layout.ts';
-import { LevelMeter } from './LevelMeter.tsx';
-import { useManual } from './ManualOverlay.tsx';
+import { useHits } from './hooks.ts';
+import { layOutRow } from './layout.ts';
 import { minimumWidth, Panel, panelLayout } from './Panel.tsx';
 import { hertzText } from './params.ts';
-import { usePrompt } from './PromptOverlay.tsx';
 import { Text } from './Text.tsx';
 import { TriggerPad } from './TriggerPad.tsx';
 
@@ -19,25 +23,30 @@ export const EDITOR_HEIGHT = 610;
 
 const MAX_PREVIEW_SECONDS = 8;
 
-// AudioPluginAudioProcessorEditor::headerTitle and headerLayout
-const HEADER_TITLE: HeaderTitle = { small: 'SAMPLEREALM', large: 'DRUMS' };
+// AudioPluginAudioProcessorEditor::titleLayout
+const TITLE_LAYOUT = { textWidth: 150, largeHeight: 22, inset: 12, switchWidth: 220, switchHeight: 30 };
+
+// Source/ui/HeaderTitle.h
+const SMALL_LINE_HEIGHT = 16;
+const SMALL_FONT_HEIGHT = 11;
 
 // Source/ui/TailMeter.h
 const TAIL_METER = { meterWidth: 14, meterHeight: 40, gap: 10, readoutWidth: 150 };
 
+// AudioPluginAudioProcessorEditor::headerLayout
 const HEADER_LAYOUT: HeaderLayout = {
   height: 68,
   edge: 16,
-  titleWidth: 150,
-  titleHeight: 22,
-  switchWidth: 220,
+  titleWidth: TITLE_LAYOUT.textWidth + TITLE_LAYOUT.switchWidth,
+  titleHeight: TITLE_LAYOUT.largeHeight,
   gap: 22,
   controlsHeight: 30,
-  menuWidth: 28,
-  menuGap: 4,
   meterWidth: TAIL_METER.readoutWidth + TAIL_METER.gap + TAIL_METER.meterWidth,
   meterInset: 12,
 };
+
+// The level meter's bar and background, as CustomLookAndFeel gives LevelMeter's colour ids
+const METER_COLOURS = { '--color-thumb': 'var(--color-accent-alt)', '--color-meter-background': 'var(--color-panel)' } as CSSProperties;
 
 const BOXES = {
   envelopePanel: { left: 16, top: 70, width: 790, height: 396 },
@@ -45,7 +54,7 @@ const BOXES = {
   global: { left: 824, top: 70, width: 240, height: 230 },
   pad: { left: 824, top: 310, width: 240, height: 156 },
   panelRow: { left: 16, top: 478, width: 1048, height: 120 },
-} satisfies Record<string, Box>;
+} satisfies Record<string, Rect>;
 
 const PANEL_GAP = 10;
 
@@ -176,7 +185,7 @@ function usePreview(backend: DrumsBackend, note: number, viewSeconds: number) {
   return preview;
 }
 
-function ParamPanel({ backend, spec, box, hasPitch }: { backend: DrumsBackend; spec: PanelSpec; box: Box; hasPitch: boolean }) {
+function ParamPanel({ backend, spec, box, hasPitch }: { backend: DrumsBackend; spec: PanelSpec; box: Rect; hasPitch: boolean }) {
   const layout = panelLayout(box, spec.controls.length, { columns: spec.columns, headerWidth: spec.header?.width });
 
   return (
@@ -191,7 +200,7 @@ function ParamPanel({ backend, spec, box, hasPitch }: { backend: DrumsBackend; s
   );
 }
 
-function Readout({ preview, box }: { preview: Preview | null; box: Box }) {
+function Readout({ preview, box }: { preview: Preview | null; box: Rect }) {
   if (!preview || preview.tailHz <= 0) return null;
   const { left, top, width } = box;
   const line = (y: number, height: number) => ({ left, top: top + y, width, height });
@@ -211,22 +220,52 @@ function Readout({ preview, box }: { preview: Preview | null; box: Box }) {
   );
 }
 
-// TailMeter::resized
-function TailMeter({ backend, preview, box }: { backend: DrumsBackend; preview: Preview | null; box: Box }) {
+// TailMeter::resized. The drum is mono, so one bar
+function TailMeter({ backend, preview, box }: { backend: DrumsBackend; preview: Preview | null; box: Rect }) {
   const { meterWidth, meterHeight, readoutWidth } = TAIL_METER;
-  const meter = { left: box.left + box.width - meterWidth, top: box.top + centred(box.height, meterHeight), width: meterWidth, height: meterHeight };
 
   return (
     <>
       <Readout preview={preview} box={{ ...box, width: readoutWidth }} />
-      <LevelMeter backend={backend} box={meter} />
+      <div className="contents" style={METER_COLOURS}>
+        <LevelMeter
+          backend={backend}
+          x={box.left + box.width - meterWidth}
+          y={box.top + centred(box.height, meterHeight)}
+          width={meterWidth}
+          height={meterHeight}
+          channels={1}
+        />
+      </div>
+    </>
+  );
+}
+
+// HeaderTitle::paint and resized: small above large, the instrument switch to their right
+function HeaderTitle({ backend, bounds }: { backend: DrumsBackend; bounds: Rect }) {
+  const { textWidth, largeHeight, inset, switchWidth, switchHeight } = TITLE_LAYOUT;
+  const text = { left: bounds.left, top: bounds.top + inset, width: textWidth, height: bounds.height - 2 * inset };
+  const switchBox = { left: bounds.left + textWidth, top: bounds.top + centred(bounds.height, switchHeight), width: switchWidth, height: switchHeight };
+
+  return (
+    <>
+      <h1 aria-label="SAMPLEREALM DRUMS">
+        <Text style={{ ...text, height: SMALL_LINE_HEIGHT }} size={SMALL_FONT_HEIGHT} bold colour="dim" bottom>
+          SAMPLEREALM
+        </Text>
+        <Text style={{ ...text, top: text.top + SMALL_LINE_HEIGHT, height: text.height - SMALL_LINE_HEIGHT }} size={largeHeight} bold>
+          DRUMS
+        </Text>
+      </h1>
+      <ChoiceButtons backend={backend} id="instrument" box={switchBox} />
     </>
   );
 }
 
 export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend }) {
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const { prompt, overlay } = usePrompt();
-  const manual = useManual();
+  const manual = useManual(manualText);
   const { value: instrumentValue } = useParam(backend, 'instrument');
   const instrument = Math.round(instrumentValue);
   const { value: length } = useParam(backend, 'length');
@@ -254,15 +293,15 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
   const hasPitch = instrument !== 2;
 
   return (
-    <div className="relative overflow-hidden bg-background" style={{ width: EDITOR_WIDTH, height: EDITOR_HEIGHT }} data-fonts={fontsLoaded}>
+    <EditorRootContext.Provider value={root}>
+    <div ref={setRoot} className="relative overflow-hidden bg-background" style={{ width: EDITOR_WIDTH, height: EDITOR_HEIGHT }} data-fonts={fontsLoaded}>
       <HeaderBar
-        title={HEADER_TITLE}
+        title={(bounds) => <HeaderTitle backend={backend} bounds={bounds} />}
         width={EDITOR_WIDTH}
         layout={HEADER_LAYOUT}
         backend={backend}
         prompt={prompt}
         showManual={manual.showManual}
-        switchControl={(box) => <ChoiceButtons backend={backend} id="instrument" box={box} />}
         meter={(box) => <TailMeter backend={backend} preview={preview} box={box} />}
       />
 
@@ -290,5 +329,6 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
       {overlay}
       {manual.overlay}
     </div>
+    </EditorRootContext.Provider>
   );
 });

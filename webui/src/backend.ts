@@ -1,22 +1,12 @@
-type ParamKind = 'real' | 'choice';
+import type { ParamInfo, PluginBackend } from '@samplerealm/modules/backend.ts';
 
-// How a real value reads, as Source/params/ParameterFormats.h
-export type ParamFormat = 'decibels' | 'hertz' | 'suffix';
+export * from '@samplerealm/modules/backend.ts';
 
-export interface ParamInfo {
-  id: string;
-  name: string;
-  kind: ParamKind;
-  min: number;
-  max: number;
-  defaultValue: number;
-  step: number;
-  skew: number;
-  format: ParamFormat;
+// How a real value reads, as Parameters::withValueText
+export interface ValueText {
+  format: 'decibels' | 'hertz' | 'suffix';
   suffix: string;
   decimals: number;
-  automatable: boolean;
-  choices: string[];
 }
 
 // Display units: seconds, then Hz or gain; curve is the tension of the segment into the node, -1..1
@@ -36,18 +26,12 @@ export interface EnvelopeInfo {
   nodes: EnvelopeNode[];
 }
 
-export interface UiInfo {
-  version: string;
-  commit: string;
-  build: 'Debug' | 'Release';
+// Source/shared/DrumInfoJson.h
+export interface DrumInfo {
   minusInfinityDb: number;
-  params: ParamInfo[];
+  // By the parameter's place in the ui info
+  text: ValueText[];
   envelopes: EnvelopeInfo[];
-}
-
-// Linear peak per channel since the last level
-export interface Level {
-  peaks: number[];
 }
 
 // One hit, for the waveform behind the envelopes
@@ -58,51 +42,10 @@ export interface Preview {
   tailHz: number;
 }
 
-export interface PresetEntry {
-  name: string;
-  category: string;
-  isFactory: boolean;
-}
-
-export interface PresetStatus {
-  current: PresetEntry;
-  modified: boolean;
-}
-
-// Mirrors Source/presets/PresetManager.h
-export interface PresetBackend {
-  status(): PresetStatus;
-  onStatus(listener: (status: PresetStatus) => void): () => void;
-  // Factory then user presets of the current instrument, rescanning the user ones
-  list(): Promise<PresetEntry[]>;
-  load(preset: PresetEntry): Promise<void>;
-  loadInit(): Promise<void>;
-  loadNext(): Promise<void>;
-  loadPrevious(): Promise<void>;
-  exists(name: string): Promise<boolean>;
-  // Each resolves to an error message, or null
-  save(name: string, category: string): Promise<string | null>;
-  rename(preset: PresetEntry, newName: string): Promise<string | null>;
-  remove(preset: PresetEntry): Promise<string | null>;
-  // Only where presets are files
-  showFolder?(): void;
-}
-
-export const isSamePreset = (a: PresetEntry, b: PresetEntry) => a.name === b.name && a.isFactory === b.isFactory;
-
-export interface DrumsBackend {
-  info: UiInfo;
-  // "VST3 in Ableton Live", or where else the editor is running
-  running: string;
-  presets: PresetBackend;
-  param(id: string): ParamInfo;
-  // Real values, not 0..1
-  getValue(id: string): number;
-  setValue(id: string, value: number): void;
-  beginGesture(id: string): void;
-  endGesture(id: string): void;
-  subscribe(id: string, listener: (value: number) => void): () => void;
-  onLevel(listener: (level: Level) => void): () => void;
+export interface DrumsBackend extends PluginBackend {
+  // As the plugin shows a value and reads typed text
+  formatValue(param: ParamInfo, value: number): string;
+  parseValue(param: ParamInfo, text: string): number | null;
 
   // By DrumEnvelopes::Index
   envelopes: EnvelopeInfo[];
@@ -118,9 +61,3 @@ export interface DrumsBackend {
   lastNote(): number;
   preview(note: number, maxSeconds: number): Promise<Preview>;
 }
-
-export const paramLookup = <T>(entries: Map<string, T>) => (id: string) => {
-  const found = entries.get(id);
-  if (!found) throw new Error(`No parameter ${id}`);
-  return found;
-};

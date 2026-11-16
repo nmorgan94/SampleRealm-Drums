@@ -1,18 +1,4 @@
-export type Box = { left: number; top: number; width: number; height: number };
-
-// juce::Rectangle::withSizeKeepingCentre
-export const centred = (outer: number, inner: number) => Math.trunc((outer - inner) / 2);
-
-// Source/ui/LabeledSlider.h's layOutAboveLabel: the label right under a square control, the pair centred
-export function layOutAboveLabel(width: number, height: number): { control: Box; label: Box } {
-  const LABEL_HEIGHT = 16;
-  const size = Math.max(0, Math.min(width, height - LABEL_HEIGHT));
-  const top = centred(height, size + LABEL_HEIGHT);
-  return {
-    control: { left: centred(width, size), top, width: size, height: size },
-    label: { left: 0, top: top + size, width, height: LABEL_HEIGHT },
-  };
-}
+import type { Rect } from '@samplerealm/modules/editor/layout.ts';
 
 export interface RowPanel {
   numControls: number;
@@ -21,7 +7,7 @@ export interface RowPanel {
 
 // Source/ui/Panel.h's layOutRow: panels as wide as their number of controls, none narrower than its
 // minimum, the last taking what rounding leaves
-export function layOutRow(panels: readonly RowPanel[], area: Box, gap: number): Box[] {
+export function layOutRow(panels: readonly RowPanel[], area: Rect, gap: number): Rect[] {
   const atMinimum = new Set<RowPanel>();
   let controlWidth = 0;
 

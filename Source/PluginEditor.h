@@ -2,17 +2,15 @@
 
 #include "PluginProcessor.h"
 #include "dsp/PreviewRenderer.h"
-#include "ui/About.h"
 #include "ui/Controls.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/EnvelopeEditor.h"
-#include "ui/HeaderBar.h"
-#include "ui/Manual.h"
+#include "ui/HeaderTitle.h"
 #include "ui/Panel.h"
-#include "ui/PromptOverlay.h"
 #include "ui/TailMeter.h"
 #include "ui/TriggerPad.h"
 #include "ui/Waveform.h"
+#include <BinaryData.h>
 
 //==============================================================================
 class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -22,11 +20,11 @@ class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
 public:
     static constexpr int width = 1080, height = 610;
 
-    // As HEADER_TITLE and HEADER_LAYOUT in webui/src/Editor.tsx
-    inline static const srd::HeaderBar::Title headerTitle { "SAMPLEREALM", "DRUMS" };
-    static constexpr srd::HeaderBar::Layout headerLayout { .height = 68, .edge = 16, .titleWidth = 150, .titleHeight = 22.0f,
-                                                           .switchWidth = 220, .gap = 22, .controlsHeight = 30, .menuWidth = 28, .menuGap = 4,
-                                                           .meterWidth = srd::TailMeter::preferredWidth, .meterInset = 12 };
+    // As TITLE_LAYOUT and HEADER_LAYOUT in webui/src/Editor.tsx
+    static constexpr srd::HeaderTitle::Layout titleLayout { .textWidth = 150, .largeHeight = 22.0f, .inset = 12,
+                                                            .switchWidth = 220, .switchHeight = 30 };
+    static constexpr HeaderBar::Layout headerLayout { .height = 68, .edge = 16, .titleWidth = titleLayout.width(), .titleHeight = titleLayout.largeHeight,
+                                                      .gap = 22, .controlsHeight = 30, .meterWidth = srd::TailMeter::preferredWidth, .meterInset = 12 };
 
     explicit AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor&);
     ~AudioPluginAudioProcessorEditor() override;
@@ -45,12 +43,13 @@ private:
     CustomLookAndFeel overlayLookAndFeel; // labels in the bright text colour
 
     // Top bar
-    srd::PromptOverlay prompt;
-    srd::ManualOverlay manual;
+    PromptOverlay prompt;
+    ManualOverlay manual { juce::String::createStringFromData (BinaryData::Manual_md, BinaryData::Manual_mdSize) };
     srd::ChoiceButtons instrumentSwitch { apvts, Parameters::instrumentId };
+    srd::HeaderTitle title { "SAMPLEREALM", "DRUMS", titleLayout, instrumentSwitch };
     srd::TailMeter tailMeter { processorRef.getOutputMeter() };
-    srd::HeaderBar header { headerTitle, headerLayout, instrumentSwitch, processorRef.getPresetManager(), prompt,
-                            [this] { manual.show(); }, About::text (processorRef), tailMeter };
+    HeaderBar header { title, headerLayout, processorRef.getPresetManager(), prompt,
+                       [this] { manual.show(); }, About::text (processorRef), tailMeter };
 
     // The instrument's envelopes, drawn together over a preview of one hit
     srd::EnvelopeEditor envelopeEditor { processorRef.getEnvelopeModel() };

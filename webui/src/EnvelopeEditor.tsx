@@ -4,8 +4,9 @@ import {
 } from 'react';
 import type { DrumsBackend, EnvelopeNode, Preview } from './backend.ts';
 import { clampValue, duration, evaluate, formatTime, gridStep, gridValues, insertNode, removeNode, setNode, toDisplay, toDomain, toDomainNodes, viewSeconds } from './envelope.ts';
-import { juceHeight, textWidth } from './fonts.ts';
-import type { Box } from './layout.ts';
+import { juceHeight } from '@samplerealm/modules/editor/fonts.ts';
+import type { Rect } from '@samplerealm/modules/editor/layout.ts';
+import { textWidth } from './fonts.ts';
 
 const NODE_RADIUS = 4.5;
 const HANDLE_RADIUS = 3;
@@ -51,7 +52,7 @@ const toPath = (points: readonly Point[]) => points.map(([x, y], i) => `${i === 
 
 interface EnvelopeEditorProps {
   backend: DrumsBackend;
-  box: Box;
+  box: Rect;
   // Shown together, each in its own colour; envelope is the one being edited
   curves: Curve[];
   envelope: number;
@@ -149,7 +150,7 @@ export function EnvelopeEditor({ backend, box, curves, envelope, onSelect, timeS
 
   // Legend items sit in a row at the plot's top right, in curve order
   const legendBoxes = useMemo(() => {
-    const boxes: Box[] = [];
+    const boxes: Rect[] = [];
     let right = plotRight - 8;
     for (let i = curves.length - 1; i >= 0; i--) {
       const width = LEGEND_DOT + LEGEND_GAP + textWidth(curves[i]!.name, FONT);

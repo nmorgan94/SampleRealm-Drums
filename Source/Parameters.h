@@ -77,6 +77,9 @@ namespace Parameters
     using ParameterSpecs::Instrument;
     using ParameterSpecs::instrumentFromIndex;
 
-    // Built from ParameterSpecs::all, in its order
-    juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    /** "x.xx kHz" from 1000, "x.x Hz" below 100, else whole Hz. */
+    juce::String hertzText (float hz);
+
+    /** For createParameterLayout: each spec's value text and its parser. The unit is part of the text, so there's no label. */
+    juce::AudioParameterFloatAttributes withValueText (const ParameterSpecs::Spec&, juce::AudioParameterFloatAttributes);
 }

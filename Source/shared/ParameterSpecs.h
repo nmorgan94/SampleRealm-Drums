@@ -1,15 +1,10 @@
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <span>
-#include <juce_core/juce_core.h>
+#include <samplerealm/ParameterSpec.h>
 
 //==============================================================================
 namespace ParameterSpecs
 {
-    enum class Kind { real, choice };
-
     // How a real value reads. The unit is part of the text, so there are no labels
     enum class Format
     {
@@ -18,49 +13,45 @@ namespace ParameterSpecs
         suffix      // decimals places, then suffix
     };
 
-    struct Spec
+    /** A spec, and how its value reads. */
+    struct DrumSpec : Spec
     {
-        const char* id;
-        const char* name;
-        Kind kind;
-        float min, max, defaultValue;
-        float step = 0.0f;
-        float centre = 0.0f;   // the value at the middle of the range, or 0 for a linear range
         Format format = Format::suffix;
         const char* suffix = "";
         int decimals = 0;
-        std::span<const char* const> choices = {};
-        bool automatable = true;
     };
 
     // The bottom of every level range; it reads "-inf dB" and the engine treats it as silence
     inline constexpr float minusInfinityDb = -60.0f;
 
-    constexpr Spec real (const char* id, const char* name, float min, float max, float defaultValue,
-                         float step, const char* suffix, int decimals, float centre = 0.0f)
+    /** centre is the value at the middle of the range; without one the range is linear. */
+    constexpr DrumSpec real (const char* id, const char* name, float min, float max, float defaultValue,
+                             float step, const char* suffix, int decimals, std::optional<float> centre = std::nullopt)
     {
-        return { id, name, Kind::real, min, max, defaultValue, step, centre, Format::suffix, suffix, decimals };
+        Spec spec { id, name, Kind::real, min, max, defaultValue, step };
+        spec.centre = centre;
+        return { spec, Format::suffix, suffix, decimals };
     }
 
-    constexpr Spec level (const char* id, const char* name, float min, float max, float defaultValue)
+    constexpr DrumSpec level (const char* id, const char* name, float min, float max, float defaultValue)
     {
-        return { id, name, Kind::real, min, max, defaultValue, 0.1f, 0.0f, Format::decibels };
+        return { { id, name, Kind::real, min, max, defaultValue, 0.1f }, Format::decibels };
     }
 
-    constexpr Spec percent (const char* id, const char* name, float max, float defaultValue)
+    constexpr DrumSpec percent (const char* id, const char* name, float max, float defaultValue)
     {
         return real (id, name, 0.0f, max, defaultValue, 0.1f, " %", 0);
     }
 
-    constexpr Spec hertz (const char* id, const char* name, float min, float max, float centre, float defaultValue)
+    constexpr DrumSpec hertz (const char* id, const char* name, float min, float max, float centre, float defaultValue)
     {
-        return { id, name, Kind::real, min, max, defaultValue, 0.0f, centre, Format::hertz };
+        return { withCentre ({ id, name, Kind::real, min, max, defaultValue }, centre), Format::hertz };
     }
 
-    constexpr Spec choice (const char* id, const char* name, std::span<const char* const> choices, bool automatable = true)
+    /** Starts at its first choice. */
+    constexpr DrumSpec choiceOf (const char* id, const char* name, std::span<const char* const> choices)
     {
-        return { id, name, Kind::choice, 0.0f, static_cast<float> (choices.size() - 1), 0.0f, 1.0f, 0.0f,
-                 Format::suffix, "", 0, choices, automatable };
+        return { choice (id, name, choices, 0) };
     }
 
     enum class Instrument { kick, snare, cymbal };
@@ -81,67 +72,67 @@ namespace ParameterSpecs
     inline constexpr std::array<const char*, 4> driveTypeNames { "Soft", "Hard", "Fold", "Tube" };
 
     // Global. Switching instrument swaps the whole UI, so it isn't automatable
-    inline constexpr Spec instrument = choice ("instrument", "Instrument", instrumentNames, false);
-    inline constexpr Spec outputGain = level ("outputGain", "Output", minusInfinityDb, 6.0f, -2.5f);
-    inline constexpr Spec tune       = real ("tune", "Tune", -24.0f, 24.0f, 0.0f, 0.01f, " st", 2);
-    inline constexpr Spec keyTrack   = choice ("keyTrack", "Key Track", offOn);
-    inline constexpr Spec length     = real ("length", "Length", 0.25f, 4.0f, 1.0f, 0.01f, "x", 2, 1.0f);
-    inline constexpr Spec pitchDepth = percent ("pitchDepth", "Pitch Depth", 200.0f, 100.0f);
+    inline constexpr DrumSpec instrument { notAutomatable (choice ("instrument", "Instrument", instrumentNames, 0)) };
+    inline constexpr DrumSpec outputGain = level ("outputGain", "Output", minusInfinityDb, 6.0f, -2.5f);
+    inline constexpr DrumSpec tune       = real ("tune", "Tune", -24.0f, 24.0f, 0.0f, 0.01f, " st", 2);
+    inline constexpr DrumSpec keyTrack   = choiceOf ("keyTrack", "Key Track", offOn);
+    inline constexpr DrumSpec length     = real ("length", "Length", 0.25f, 4.0f, 1.0f, 0.01f, "x", 2, 1.0f);
+    inline constexpr DrumSpec pitchDepth = percent ("pitchDepth", "Pitch Depth", 200.0f, 100.0f);
 
     // Sub
-    inline constexpr Spec subLevel     = level ("subLevel", "Sub Level", minusInfinityDb, 6.0f, 0.0f);
-    inline constexpr Spec subHarmonics = percent ("subHarmonics", "Harmonics", 100.0f, 0.0f);
-    inline constexpr Spec subPhase     = real ("subPhase", "Phase", 0.0f, 90.0f, 0.0f, 1.0f, "\xc2\xb0", 0);
+    inline constexpr DrumSpec subLevel     = level ("subLevel", "Sub Level", minusInfinityDb, 6.0f, 0.0f);
+    inline constexpr DrumSpec subHarmonics = percent ("subHarmonics", "Harmonics", 100.0f, 0.0f);
+    inline constexpr DrumSpec subPhase     = real ("subPhase", "Phase", 0.0f, 90.0f, 0.0f, 1.0f, "\xc2\xb0", 0);
 
     // Click
-    inline constexpr Spec clickType  = choice ("clickType", "Click Type", clickTypeNames);
-    inline constexpr Spec clickLevel = level ("clickLevel", "Click Level", minusInfinityDb, 6.0f, -12.0f);
-    inline constexpr Spec clickTone  = hertz ("clickTone", "Click Tone", 200.0f, 16000.0f, 3000.0f, 4000.0f);
-    inline constexpr Spec clickDecay = real ("clickDecay", "Click Decay", 1.0f, 100.0f, 12.0f, 0.1f, " ms", 1, 15.0f);
-    inline constexpr Spec clickPitch = hertz ("clickPitch", "Click Pitch", 200.0f, 10000.0f, 2000.0f, 2500.0f);
+    inline constexpr DrumSpec clickType  = choiceOf ("clickType", "Click Type", clickTypeNames);
+    inline constexpr DrumSpec clickLevel = level ("clickLevel", "Click Level", minusInfinityDb, 6.0f, -12.0f);
+    inline constexpr DrumSpec clickTone  = hertz ("clickTone", "Click Tone", 200.0f, 16000.0f, 3000.0f, 4000.0f);
+    inline constexpr DrumSpec clickDecay = real ("clickDecay", "Click Decay", 1.0f, 100.0f, 12.0f, 0.1f, " ms", 1, 15.0f);
+    inline constexpr DrumSpec clickPitch = hertz ("clickPitch", "Click Pitch", 200.0f, 10000.0f, 2000.0f, 2500.0f);
 
     // Snare body
-    inline constexpr Spec snareBodyLevel     = level ("snareBodyLevel", "Body Level", minusInfinityDb, 6.0f, -4.0f);
-    inline constexpr Spec snareBodyHarmonics = percent ("snareBodyHarmonics", "Body Harmonics", 100.0f, 20.0f);
+    inline constexpr DrumSpec snareBodyLevel     = level ("snareBodyLevel", "Body Level", minusInfinityDb, 6.0f, -4.0f);
+    inline constexpr DrumSpec snareBodyHarmonics = percent ("snareBodyHarmonics", "Body Harmonics", 100.0f, 20.0f);
 
     // Snare noise
-    inline constexpr Spec snareNoiseLevel   = level ("snareNoiseLevel", "Noise Level", minusInfinityDb, 6.0f, 0.0f);
-    inline constexpr Spec snareNoiseLowCut  = hertz ("snareNoiseLowCut", "Noise Low Cut", 100.0f, 8000.0f, 1500.0f, 800.0f);
-    inline constexpr Spec snareNoiseHighCut = hertz ("snareNoiseHighCut", "Noise High Cut", 1000.0f, 18000.0f, 6000.0f, 12000.0f);
+    inline constexpr DrumSpec snareNoiseLevel   = level ("snareNoiseLevel", "Noise Level", minusInfinityDb, 6.0f, 0.0f);
+    inline constexpr DrumSpec snareNoiseLowCut  = hertz ("snareNoiseLowCut", "Noise Low Cut", 100.0f, 8000.0f, 1500.0f, 800.0f);
+    inline constexpr DrumSpec snareNoiseHighCut = hertz ("snareNoiseHighCut", "Noise High Cut", 1000.0f, 18000.0f, 6000.0f, 12000.0f);
 
     // Snare snap
-    inline constexpr Spec snareSnapType  = choice ("snareSnapType", "Snap Type", clickTypeNames);
-    inline constexpr Spec snareSnapLevel = level ("snareSnapLevel", "Snap Level", minusInfinityDb, 6.0f, -6.0f);
-    inline constexpr Spec snareSnapTone  = hertz ("snareSnapTone", "Snap Tone", 200.0f, 16000.0f, 3000.0f, 3500.0f);
-    inline constexpr Spec snareSnapDecay = real ("snareSnapDecay", "Snap Decay", 1.0f, 100.0f, 8.0f, 0.1f, " ms", 1, 15.0f);
-    inline constexpr Spec snareSnapPitch = hertz ("snareSnapPitch", "Snap Pitch", 200.0f, 10000.0f, 2000.0f, 2500.0f);
+    inline constexpr DrumSpec snareSnapType  = choiceOf ("snareSnapType", "Snap Type", clickTypeNames);
+    inline constexpr DrumSpec snareSnapLevel = level ("snareSnapLevel", "Snap Level", minusInfinityDb, 6.0f, -6.0f);
+    inline constexpr DrumSpec snareSnapTone  = hertz ("snareSnapTone", "Snap Tone", 200.0f, 16000.0f, 3000.0f, 3500.0f);
+    inline constexpr DrumSpec snareSnapDecay = real ("snareSnapDecay", "Snap Decay", 1.0f, 100.0f, 8.0f, 0.1f, " ms", 1, 15.0f);
+    inline constexpr DrumSpec snareSnapPitch = hertz ("snareSnapPitch", "Snap Pitch", 200.0f, 10000.0f, 2000.0f, 2500.0f);
 
     // Cymbal metal
-    inline constexpr Spec cymbalMetalLevel = level ("cymbalMetalLevel", "Metal Level", minusInfinityDb, 6.0f, -6.0f);
-    inline constexpr Spec cymbalMetalTone  = hertz ("cymbalMetalTone", "Metal Tone", 2000.0f, 16000.0f, 6000.0f, 8000.0f);
-    inline constexpr Spec cymbalMetalRing  = percent ("cymbalMetalRing", "Metal Ring", 100.0f, 30.0f);
+    inline constexpr DrumSpec cymbalMetalLevel = level ("cymbalMetalLevel", "Metal Level", minusInfinityDb, 6.0f, -6.0f);
+    inline constexpr DrumSpec cymbalMetalTone  = hertz ("cymbalMetalTone", "Metal Tone", 2000.0f, 16000.0f, 6000.0f, 8000.0f);
+    inline constexpr DrumSpec cymbalMetalRing  = percent ("cymbalMetalRing", "Metal Ring", 100.0f, 30.0f);
 
     // Cymbal noise
-    inline constexpr Spec cymbalNoiseLevel   = level ("cymbalNoiseLevel", "Cymbal Noise Level", minusInfinityDb, 6.0f, 0.0f);
-    inline constexpr Spec cymbalNoiseLowCut  = hertz ("cymbalNoiseLowCut", "Cymbal Noise Low Cut", 200.0f, 12000.0f, 3000.0f, 6000.0f);
-    inline constexpr Spec cymbalNoiseHighCut = hertz ("cymbalNoiseHighCut", "Cymbal Noise High Cut", 1000.0f, 18000.0f, 6000.0f, 16000.0f);
+    inline constexpr DrumSpec cymbalNoiseLevel   = level ("cymbalNoiseLevel", "Cymbal Noise Level", minusInfinityDb, 6.0f, 0.0f);
+    inline constexpr DrumSpec cymbalNoiseLowCut  = hertz ("cymbalNoiseLowCut", "Cymbal Noise Low Cut", 200.0f, 12000.0f, 3000.0f, 6000.0f);
+    inline constexpr DrumSpec cymbalNoiseHighCut = hertz ("cymbalNoiseHighCut", "Cymbal Noise High Cut", 1000.0f, 18000.0f, 6000.0f, 16000.0f);
 
     // Drive
-    inline constexpr Spec driveType   = choice ("driveType", "Drive Type", driveTypeNames);
-    inline constexpr Spec driveAmount = percent ("driveAmount", "Drive", 100.0f, 20.0f);
-    inline constexpr Spec driveMix    = percent ("driveMix", "Drive Mix", 100.0f, 100.0f);
+    inline constexpr DrumSpec driveType   = choiceOf ("driveType", "Drive Type", driveTypeNames);
+    inline constexpr DrumSpec driveAmount = percent ("driveAmount", "Drive", 100.0f, 20.0f);
+    inline constexpr DrumSpec driveMix    = percent ("driveMix", "Drive Mix", 100.0f, 100.0f);
 
     // EQ
-    inline constexpr Spec eqLowGain  = level ("eqLowGain", "Low", -12.0f, 12.0f, 0.0f);
-    inline constexpr Spec eqMidFreq  = hertz ("eqMidFreq", "Mid Freq", 100.0f, 5000.0f, 600.0f, 400.0f);
-    inline constexpr Spec eqMidGain  = level ("eqMidGain", "Mid", -12.0f, 12.0f, 0.0f);
-    inline constexpr Spec eqHighGain = level ("eqHighGain", "High", -12.0f, 12.0f, 0.0f);
+    inline constexpr DrumSpec eqLowGain  = level ("eqLowGain", "Low", -12.0f, 12.0f, 0.0f);
+    inline constexpr DrumSpec eqMidFreq  = hertz ("eqMidFreq", "Mid Freq", 100.0f, 5000.0f, 600.0f, 400.0f);
+    inline constexpr DrumSpec eqMidGain  = level ("eqMidGain", "Mid", -12.0f, 12.0f, 0.0f);
+    inline constexpr DrumSpec eqHighGain = level ("eqHighGain", "High", -12.0f, 12.0f, 0.0f);
 
     // Clip
-    inline constexpr Spec clipAmount = percent ("clipAmount", "Clip", 100.0f, 0.0f);
+    inline constexpr DrumSpec clipAmount = percent ("clipAmount", "Clip", 100.0f, 0.0f);
 
     // The host's parameter order
-    inline constexpr std::array all {
+    inline constexpr std::array drumSpecs {
         &instrument, &outputGain, &tune, &keyTrack, &length, &pitchDepth,
         &subLevel, &subHarmonics, &subPhase,
         &clickType, &clickLevel, &clickTone, &clickDecay, &clickPitch,
@@ -155,24 +146,15 @@ namespace ParameterSpecs
         &clipAmount
     };
 
-    static_assert (std::ranges::all_of (all, [] (const Spec* spec)
+    // The same list as the shared code reads it
+    inline constexpr auto all = []
     {
-        if (spec->kind == Kind::real)
-            return spec->centre == 0.0f || (spec->centre > spec->min && spec->centre < spec->max);
+        std::array<const Spec*, drumSpecs.size()> specs {};
+        std::ranges::copy (drumSpecs, specs.begin());
+        return specs;
+    }();
 
-        return spec->step == 1.0f && spec->min == 0.0f && static_cast<size_t> (spec->max) == spec->choices.size() - 1;
-    }), "A choice spec's range is 0 to its last choice, and a real spec's centre lies inside its range");
-
-    /** The host's range, skewed so a real spec's centre sits half way. */
-    inline juce::NormalisableRange<float> rangeOf (const Spec& spec)
-    {
-        juce::NormalisableRange<float> range { spec.min, spec.max, spec.step };
-
-        if (! juce::exactlyEqual (spec.centre, 0.0f))
-            range.setSkewForCentre (spec.centre);
-
-        return range;
-    }
+    static_assert (areValid (all));
 
     /** The spec's place in all, and so in any table of values kept in the host's order. */
     constexpr std::size_t indexOf (const Spec& spec)
@@ -183,5 +165,11 @@ namespace ParameterSpecs
             ++index;
 
         return index;
+    }
+
+    /** The spec with how its value reads. */
+    constexpr const DrumSpec& drumSpecOf (const Spec& spec)
+    {
+        return *drumSpecs[indexOf (spec)];
     }
 }

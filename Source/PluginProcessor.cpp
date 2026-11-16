@@ -4,7 +4,7 @@
 #include <BinaryData.h>
 
 #if PLUGIN_WEBVIEW_EDITOR
- #include "webview/WebViewEditor.h"
+ #include "webview/DrumsWebView.h"
 #endif
 
 //==============================================================================
@@ -12,8 +12,8 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
      : AudioProcessor (BusesProperties()
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
-    // Curve edits count as changes to the loaded preset, just like parameter moves
-    envelopeModel.onUserEdit = [this] { presetManager.markModified(); };
+    // Curve edits count as changes to the loaded preset, just like parameter moves: PresetManager hears this
+    envelopeModel.onUserEdit = [this] { updateHostDisplay (ChangeDetails{}.withNonParameterStateChanged (true)); };
     updateEnvelopes();
 }
 
@@ -63,11 +63,11 @@ void AudioPluginAudioProcessor::updateEnvelopes() noexcept
             synth.setEnvelope (env, envelopes[env]);
 }
 
-srd::PresetManager::Config AudioPluginAudioProcessor::createPresetConfig()
+PresetManager::Config AudioPluginAudioProcessor::createPresetConfig()
 {
-    srd::PresetManager::Config config;
+    PresetManager::Config config;
     config.fileExtension = ".srdrum";
-    config.userDirectory = srd::PresetManager::getDefaultUserDirectory (JucePlugin_Manufacturer, JucePlugin_Name);
+    config.userDirectory = PresetManager::getDefaultUserDirectory (JucePlugin_Manufacturer, JucePlugin_Name);
     config.author        = JucePlugin_Manufacturer;
     config.formatVersion = Parameters::versionHint;
 
@@ -192,7 +192,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // The drum is mono: render into the first channel, then copy it to the rest
     auto* mono = buffer.getWritePointer (0);
     synth.process (mono, numSamples, midiMessages);
-    outputMeter.process (mono, numSamples);
+    outputMeter.process (buffer);
 
     for (int channel = 1; channel < buffer.getNumChannels(); ++channel)
         buffer.copyFrom (channel, 0, mono, numSamples);
@@ -207,7 +207,7 @@ bool AudioPluginAudioProcessor::hasEditor() const
 juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 {
    #if PLUGIN_WEBVIEW_EDITOR
-    return new WebViewEditor (*this);
+    return createDrumsWebViewEditor (*this);
    #else
     return new AudioPluginAudioProcessorEditor (*this);
    #endif

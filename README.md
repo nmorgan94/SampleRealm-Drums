@@ -84,7 +84,7 @@ Shared by all three instruments:
   - **Windows**: Visual Studio 2022 or later with the "Desktop development with C++" workload
 - Git
 
-On the first configure, CMake downloads JUCE, pluginval and Catch2 automatically via CPM, into `.cpm-cache/`. The wasm build keeps its patched JUCE there too, beside the clean one.
+On the first configure, CMake downloads JUCE, SampleRealm-Modules, pluginval and Catch2 automatically via CPM, into `.cpm-cache/`. The wasm build keeps its patched JUCE there too, beside the clean one.
 
 ## Commands
 
@@ -113,7 +113,7 @@ demo. Only this much Markdown is read:
 - Any other line is text, joined to the paragraph or bullet above until a blank line
 - No inline formatting, links or images
 
-`Source/ui/Manual.cpp` and `webui/src/manual.ts` parse it; their tests share one sample, so change both together.
+SampleRealm-Modules' `editor/Manual.cpp` and `web/editor/manual.ts` parse it.
 
 ## Presets
 
@@ -173,7 +173,7 @@ The AU test validates the installed component in `~/Library/Audio/Plug-Ins/Compo
 Catch2 tests in `Tests/` drive the processor directly: bus layouts, state save and restore, and finite output across block sizes and settings (see [Commands](#commands) to run them). Add a `.cpp` file to `Tests/` and reconfigure to pick it up.
 
 - `ParameterSnapshotTests.cpp` pins every parameter's id, range, default and text, which saved sessions rely on. Change it only on purpose.
-- `GoldenTests.cpp` checks rendered hits against `Tests/fixtures/golden.json`, which the wasm engine's test also checks. After a deliberate change to the sound, re-record it with `build-debug/Drums_Tests "[.write-golden]"`.
+- `GoldenTests.cpp` checks rendered hits against `Tests/fixtures/golden.json`, which `webui/test/engine.test.ts` also checks against the wasm engine. After a deliberate change to the sound, re-record it with `build-debug/Drums_Tests "[.write-golden]"`.
 
 ## CI
 
@@ -195,7 +195,7 @@ Needs Emscripten (`brew install emscripten`) and Node 24+.
 - The demo builds to `wasm/build-wasm/SampleRealm-Drums-<version>/`, named from `COMPANY_NAME`, `project()` and `VERSION` in `CMakeLists.txt`. Upload that folder; the site embeds its `index.html` in an iframe. [`wasm.yml`](.github/workflows/wasm.yml) builds the same folder on GitHub as an artifact of that name, run by hand.
 - The demo plays from the on-screen keyboard, the computer keyboard (A to ' from C1) or a MIDI keyboard, and the Hit pad. Its user presets stay in the browser.
 - The `webview` build installs over the native one; run the `release` workflow to switch back.
-- Delete `wasm/patches/juce-wasm.patch` once JUCE fixes its wasm support.
+- The wasm build patches JUCE (`cmake/patches/juce-wasm.patch` in SampleRealm-Modules) until JUCE fixes its wasm support.
 
 ## Plugin Locations
 

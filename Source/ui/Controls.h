@@ -1,7 +1,6 @@
 #pragma once
 
-#include <juce_audio_processors/juce_audio_processors.h>
-#include "LabeledSlider.h"
+#include <controls/controls.h>
 #include "SegmentedButtons.h"
 
 //==============================================================================
@@ -11,6 +10,10 @@
  */
 namespace srd
 {
+    // As LABEL_HEIGHT and NAME_HEIGHT in webui/src/controls.tsx
+    constexpr int controlLabelHeight = 16;
+    constexpr float controlNameHeight = 11.0f;
+
     namespace detail
     {
         inline juce::RangedAudioParameter& getParameter (juce::AudioProcessorValueTreeState& apvts, const juce::ParameterID& id)
@@ -29,7 +32,7 @@ namespace srd
         inline void initLabel (juce::Label& label, const juce::RangedAudioParameter& param, const juce::String& labelText)
         {
             label.setText (labelFor (param, labelText), juce::dontSendNotification);
-            LabeledSlider::styleLabel (label);
+            LabeledSlider::styleLabel (label, controlNameHeight);
             label.setInterceptsMouseClicks (false, false);
         }
     }
@@ -43,6 +46,8 @@ namespace srd
             : attachment (apvts, id.getParamID(), getSlider())
         {
             setLabelText (detail::labelFor (detail::getParameter (apvts, id), labelText));
+            setLabelHeight (controlLabelHeight);
+            setNameHeight (controlNameHeight);
         }
 
     private:
@@ -118,7 +123,7 @@ namespace srd
 
         void resized() override
         {
-            const auto bounds = LabeledSlider::layOutAboveLabel (label, getLocalBounds());
+            const auto bounds = LabeledSlider::layOutAboveLabel (label, getLocalBounds(), controlLabelHeight);
             button.setBounds (bounds.withSizeKeepingCentre (std::min (bounds.getWidth(), 64), std::min (bounds.getHeight(), 24)));
         }
 

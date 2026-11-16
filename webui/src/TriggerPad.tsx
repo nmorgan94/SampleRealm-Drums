@@ -1,7 +1,7 @@
 // Mirrors Source/ui/TriggerPad.h
 import { useEffect, useRef, useState } from 'react';
-import { juceHeight } from './fonts.ts';
-import type { Box } from './layout.ts';
+import { juceHeight } from '@samplerealm/modules/editor/fonts.ts';
+import type { Rect } from '@samplerealm/modules/editor/layout.ts';
 
 // TriggerPad::timerCallback: at 60 Hz, by 0.85 a tick until under 0.01
 const decayed = (brightness: number, elapsedMs: number) => {
@@ -10,7 +10,7 @@ const decayed = (brightness: number, elapsedMs: number) => {
 };
 
 // Fires on press and flashes whenever hits changes, including hits from MIDI
-export function TriggerPad({ text, box, hits, onTrigger }: { text: string; box: Box; hits: number; onTrigger(): void }) {
+export function TriggerPad({ text, box, hits, onTrigger }: { text: string; box: Rect; hits: number; onTrigger(): void }) {
   const [brightness, setBrightness] = useState(0);
   const frame = useRef(0);
 

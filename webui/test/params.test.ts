@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatValue, fromProportion, MINUS_INFINITY_DB, parseValue, toProportion } from '../src/params.ts';
-import { info, param } from './engine.ts';
+import { fromProportion } from '@samplerealm/modules/editor/params.ts';
+import { drumText } from '../src/params.ts';
+import { drums, info, param } from './engine.ts';
+
+const { formatValue, parseValue } = drumText(info, drums);
 
 // From the snapshot in Tests/ParameterSnapshotTests.cpp: the text at 0, 0.5 and 1
 const pluginText: Record<string, [string, string, string]> = {
@@ -61,10 +64,6 @@ const typed: [id: string, text: string, value: number][] = [
   ['driveType', 'Hard', 1],
 ];
 
-test('the engine uses the plugin minus infinity', () => {
-  assert.equal(info.minusInfinityDb, MINUS_INFINITY_DB);
-});
-
 test('every parameter has a row in pluginText', () => {
   assert.deepEqual(Object.keys(pluginText), info.params.map(({ id }) => id));
 });
@@ -87,15 +86,6 @@ test('text without a number is ignored, and typed values clamp and snap', () => 
   assert.equal(parseValue(param('outputGain'), '99'), 6);
   assert.equal(parseValue(param('outputGain'), '-3.14'), -3.1);
   assert.equal(parseValue(param('instrument'), 'Tom'), null);
-});
-
-test('knob positions map to values and back, skewed ranges included', () => {
-  const tone = param('clickTone');
-
-  assert.ok(Math.abs(fromProportion(tone, 0.5) - 3000) < 0.5);
-  assert.ok(Math.abs(toProportion(tone, 3000) - 0.5) < 1e-4);
-  assert.equal(fromProportion(param('outputGain'), 1.5), 6);
-  assert.equal(fromProportion(param('outputGain'), -0.5), -60);
 });
 
 test('rounding and signs follow juce::String', () => {

@@ -13,6 +13,19 @@
   --color-accent-alt2: #b48cff;
   --color-waveform: #4a5263;
   --color-clip: #ff3d4a;
+
+  /* For the shared header and overlays */
+  --color-header: var(--color-background);
+  --color-title: var(--color-fg);
+  --color-overlay-dim: color-mix(in oklab, var(--color-background) 75%, transparent);
+  --color-overlay-panel: var(--color-widget);
+  --color-overlay-outline: var(--color-line);
+  --color-input: var(--color-background);
+  --color-input-outline: var(--color-line);
+  --color-input-focus: var(--color-thumb);
+  --color-input-highlight: color-mix(in oklab, var(--color-thumb) 40%, transparent);
+  --color-scrollbar: var(--color-accent);
+
   --font-display: Orbitron, var(--font-sans);
 }
 

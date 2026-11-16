@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CustomLookAndFeel.h"
-#include "LevelMeter.h"
 
 namespace srd
 {

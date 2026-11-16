@@ -1,11 +1,11 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <samplerealm/PeakMeter.h>
 #include "Parameters.h"
 #include "dsp/DrumSynth.h"
-#include "dsp/PeakMeter.h"
 #include "envelopes/EnvelopeModel.h"
-#include "presets/PresetManager.h"
+#include <editor/editor.h>
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
@@ -50,8 +50,8 @@ public:
     //==============================================================================
     juce::AudioProcessorValueTreeState& getAPVTS()      { return apvts; }
     srd::EnvelopeModel& getEnvelopeModel()              { return envelopeModel; }
-    srd::PresetManager& getPresetManager()              { return presetManager; }
-    srd::PeakMeter& getOutputMeter()                    { return outputMeter; }
+    PresetManager& getPresetManager()                   { return presetManager; }
+    PeakMeter& getOutputMeter()                         { return outputMeter; }
 
     /** The current parameter values as the engine uses them. Safe from any thread. */
     DrumSynth::Settings getDrumSettings() const noexcept;
@@ -74,21 +74,24 @@ private:
     using ParameterValues = std::array<const std::atomic<float>*, ParameterSpecs::all.size()>;
 
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "Parameters",
-                                               Parameters::createLayout() };
+                                               createParameterLayout (ParameterSpecs::all, Parameters::versionHint,
+                                                                      Parameters::withValueText) };
 
     // Raw parameter pointers, cached once so reading is lock-free on the audio thread
     const ParameterValues parameterValues = findParameterValues (apvts);
 
     srd::EnvelopeModel envelopeModel { apvts, DrumEnvelopes::createSpecs() };
-    srd::PresetManager presetManager { apvts, createPresetConfig() };
+    PresetManager presetManager { apvts, createPresetConfig() };
 
     DrumSynth synth;
-    srd::PeakMeter outputMeter;
+
+    // Every channel carries the same mono signal
+    PeakMeter outputMeter { 1 };
 
     srd::EnvelopeModel::Snapshot envelopes;
     juce::uint32 envelopeVersion = 0;
 
-    static srd::PresetManager::Config createPresetConfig();
+    static PresetManager::Config createPresetConfig();
     static ParameterValues findParameterValues (juce::AudioProcessorValueTreeState&);
 
     float valueOf (const ParameterSpecs::Spec&) const noexcept;

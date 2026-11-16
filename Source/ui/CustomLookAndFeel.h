@@ -1,13 +1,14 @@
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
+#include <editor/editor.h>
 
 //==============================================================================
 /**
  * Dark theme set in Orbitron.
  *
  */
-class CustomLookAndFeel : public juce::LookAndFeel_V4
+class CustomLookAndFeel : public juce::LookAndFeel_V4,
+                          public EditorFonts
 {
 public:
     struct Palette
@@ -29,6 +30,9 @@ public:
     CustomLookAndFeel();
 
     static juce::Font font (float height, bool bold = false);
+
+    // The manual and the prompt's text field
+    juce::Font getEditorFont (float height, bool bold) override   { return font (height, bold); }
 
     //==============================================================================
     juce::Font getLabelFont (juce::Label&) override;

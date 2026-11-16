@@ -1,6 +1,5 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "params/ParameterFormats.h"
 
 namespace
 {
@@ -57,7 +56,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
 
     envelopeEditor.formatValue = [isPitch, percent] (std::size_t env, float value)
     {
-        return isPitch (env) ? srd::params::hertzText (value) + "  " + noteName (value) : percent (value);
+        return isPitch (env) ? Parameters::hertzText (value) + "  " + noteName (value) : percent (value);
     };
 
     envelopeEditor.formatGridValue = [isPitch, percent] (std::size_t env, float value)
@@ -117,7 +116,6 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     overlayLookAndFeel.setColour (juce::Label::textColourId, CustomLookAndFeel::Palette::text);
     prompt.setLookAndFeel (&overlayLookAndFeel);
     manual.setLookAndFeel (&overlayLookAndFeel);
-    prompt.setFont (customLookAndFeel.font (14.0f));
     addChildComponent (prompt);
     addChildComponent (manual);
 
@@ -218,7 +216,7 @@ void AudioPluginAudioProcessorEditor::updatePreview()
     if (preview.tailHz > 0.0f)
     {
         newNote = noteName (preview.tailHz);
-        newHz = srd::params::hertzText (preview.tailHz);
+        newHz = Parameters::hertzText (preview.tailHz);
     }
 
     tailMeter.setTail (newNote, newHz);
