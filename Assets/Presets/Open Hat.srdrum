@@ -3,6 +3,7 @@
   <Parameters>
     <PARAM id="instrument" value="2"/>
     <PARAM id="cymbalMetalLevel" value="-3.0"/>
+    <PARAM id="cymbalWidth" value="45.0"/>
     <ENVELOPES>
       <ENV id="cymbalMetal">
         <NODE t="0.0" v="1.0" c="0.0"/>

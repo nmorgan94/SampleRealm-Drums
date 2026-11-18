@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "shared/DrumSettings.h"
 #include <BinaryData.h>
+#include <samplerealm/Transport.h>
 
 #if PLUGIN_WEBVIEW_EDITOR
  #include "webview/DrumsWebView.h"
@@ -153,6 +154,8 @@ void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     synth.prepare (sampleRate, samplesPerBlock, getDrumSettings());
     setLatencySamples (synth.getLatencySamples());
+    outputMeter.setNumChannels (getTotalNumOutputChannels());
+    midiWithLoop.ensureSize (2048);
 }
 
 void AudioPluginAudioProcessor::releaseResources()
@@ -162,7 +165,7 @@ void AudioPluginAudioProcessor::releaseResources()
 
 bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    // Output only: the drum is mono, copied to every output channel
+    // Output only
     if (! layouts.getMainInputChannelSet().isDisabled())
         return false;
 
@@ -173,7 +176,31 @@ bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 //==============================================================================
 int AudioPluginAudioProcessor::getLastNote() const noexcept
 {
-    return synth.getLastNote (Parameters::instrumentFromIndex (juce::roundToInt (valueOf (ParameterSpecs::instrument))));
+    return synth.getLastNote (getInstrument());
+}
+
+Parameters::Instrument AudioPluginAudioProcessor::getInstrument() const noexcept
+{
+    return Parameters::instrumentFromIndex (juce::roundToInt (valueOf (ParameterSpecs::instrument)));
+}
+
+const juce::MidiBuffer& AudioPluginAudioProcessor::withLoopHits (const juce::MidiBuffer& midi, int numSamples) noexcept
+{
+    if (! loop.isOn())
+    {
+        loopClock.reset();
+        loop.stop();
+        return midi;
+    }
+
+    const auto transport = Transport::from (getPlayHead());
+    const auto instrument = getInstrument();
+    const auto ppq = loopClock.advance (transport, juce::Time::getMillisecondCounterHiRes() * 0.001, numSamples, getSampleRate());
+
+    midiWithLoop.clear();
+    midiWithLoop.addEvents (midi, 0, numSamples, 0);
+    loop.process (midiWithLoop, instrument, synth.getLastNote (instrument), ppq, transport.bpm, getSampleRate(), numSamples);
+    return midiWithLoop;
 }
 
 void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -189,13 +216,10 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     updateEnvelopes();
     synth.setSettings (getDrumSettings());
 
-    // The drum is mono: render into the first channel, then copy it to the rest
-    auto* mono = buffer.getWritePointer (0);
-    synth.process (mono, numSamples, midiMessages);
+    // A mono layout gets the drum without the cymbal's Width
+    auto* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
+    synth.process (buffer.getWritePointer (0), right, numSamples, withLoopHits (midiMessages, numSamples));
     outputMeter.process (buffer);
-
-    for (int channel = 1; channel < buffer.getNumChannels(); ++channel)
-        buffer.copyFrom (channel, 0, mono, numSamples);
 }
 
 //==============================================================================

@@ -6,6 +6,7 @@ import processorUrl from '@samplerealm/modules/demo/processor.js?url';
 import { qwertySemitone } from '@samplerealm/modules/demo/qwerty.ts';
 import { juceHeight } from '@samplerealm/modules/editor/fonts.ts';
 import { EDITOR_HEIGHT, EDITOR_WIDTH, Editor } from '../Editor.tsx';
+import { clamp } from '../envelope.ts';
 import { demoBackend, WATCHED, type DemoBackend } from './demoBackend.ts';
 import { factoryPresets } from './factoryPresets.ts';
 import { Keyboard } from './Keyboard.tsx';
@@ -17,8 +18,13 @@ const ENGINE_URL = 'engine.wasm';
 const LOW_NOTE = 24;
 const NUM_KEYS = 25;
 
-// The engine is mono; the worklet copies it to both outputs
-const CHANNELS = 1;
+// Left and right: the cymbal's Width spreads them
+const CHANNELS = 2;
+
+// Transport::bpm, until the page says otherwise
+const DEFAULT_BPM = 174;
+const MIN_BPM = 40;
+const MAX_BPM = 300;
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
@@ -44,8 +50,14 @@ function Demo() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [active, setActive] = useState<ReadonlySet<number>>(new Set());
   const [midi, setMidi] = useState<MIDIAccess | null>(null);
+  const [bpm, setBpm] = useState(DEFAULT_BPM);
   const audio = useRef<AudioContext | null>(null);
   const starting = useRef<Promise<void> | null>(null);
+
+  // The loop's tempo; a half-typed one isn't sent, and leaving the box brings it into range
+  useEffect(() => {
+    if (bpm >= MIN_BPM && bpm <= MAX_BPM) engine?.backend.setTransport({ bpm, playing: false, ppq: 0 });
+  }, [engine, bpm]);
 
   useEffect(() => {
     loadDemo()
@@ -176,6 +188,19 @@ function Demo() {
     <div onPointerDown={wake}>
       <DemoFrame width={EDITOR_WIDTH} height={EDITOR_HEIGHT} status={status} editor={engine && <Editor backend={engine.backend} />}>
         <Keyboard lowNote={LOW_NOTE} numKeys={NUM_KEYS} active={active} onNoteOn={noteOn} onNoteOff={noteOff} />
+
+        <label className="mt-2.5 mr-2.5 inline-flex h-7 items-center gap-2 rounded border border-line bg-widget pl-3 text-fg" style={{ fontSize: juceHeight(13) }}>
+          Tempo
+          <input
+            type="number"
+            className="h-full w-16 rounded-r bg-background px-2 text-fg"
+            min={MIN_BPM}
+            max={MAX_BPM}
+            value={Number.isNaN(bpm) ? '' : bpm}
+            onChange={(e) => setBpm(e.target.valueAsNumber)}
+            onBlur={() => setBpm(Number.isNaN(bpm) ? DEFAULT_BPM : clamp(bpm, MIN_BPM, MAX_BPM))}
+          />
+        </label>
 
         {status === 'ready' && !midi && 'requestMIDIAccess' in navigator && (
           <button

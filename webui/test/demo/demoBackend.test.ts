@@ -50,7 +50,7 @@ test('changes made before the worklet attaches reach it once it does, in order a
   backend.setValue('tune', -12);
   backend.setEnvelope(1, shortAmp);
   backend.noteOn(36);
-  backend.audition();
+  backend.audition(0.5);
 
   const { port, posted } = fakePort();
   backend.attach(port);
@@ -60,7 +60,7 @@ test('changes made before the worklet attaches reach it once it does, in order a
     { type: 'param', index: indexOf('tune'), value: -12 },
     { type: 'call', name: 'setEnvelope', args: [1, 2], floats: { at: 'envelopeNodes', values: flattenNodes(shortAmp) } },
     { type: 'midi', bytes: [0x90, 36, 100] },
-    { type: 'call', name: 'audition' },
+    { type: 'call', name: 'audition', args: [0.5] },
     { type: 'param', index: indexOf('tune'), value: 2 },
   ]);
 });
@@ -96,11 +96,11 @@ test('each instrument keeps the last note it played, starting from its default',
   const { backend } = setUp();
   const { port, receive } = fakePort();
   backend.attach(port);
-  const hits: number[] = [];
-  backend.onHit((note) => hits.push(note));
+  const hits: number[][] = [];
+  backend.onHit((note, level, velocity) => hits.push([note, level, velocity]));
 
   assert.equal(backend.lastNote(), 29);
-  receive({ type: 'watch', values: { hitCount: 1, lastNote: 33 } });
+  receive({ type: 'watch', values: { hitCount: 1, lastNote: 33, lastHitLevel: 0.5, lastHitVelocity: 0.25 } });
   assert.equal(backend.lastNote(), 33);
 
   // The worklet's last note follows the instrument, which isn't a hit
@@ -110,7 +110,47 @@ test('each instrument keeps the last note it played, starting from its default',
 
   backend.setValue('instrument', 0);
   assert.equal(backend.lastNote(), 33);
-  assert.deepEqual(hits, [33]);
+  assert.deepEqual(hits, [[33, 0.5, 0.25]]);
+});
+
+test('the loop is switched in the worklet and read back here', () => {
+  const { backend } = setUp();
+  const { port, posted } = fakePort();
+  backend.attach(port);
+
+  assert.deepEqual(backend.patterns, ['Two-step', 'Halftime', 'Four-floor', 'Sixteenths']);
+  assert.deepEqual(backend.getLoop(), { pattern: 0, on: false });
+
+  backend.setLoop({ pattern: 2, on: true });
+  assert.deepEqual(backend.getLoop(), { pattern: 2, on: true });
+  assert.deepEqual(posted.at(-1), { type: 'call', name: 'setLoop', args: [2, 1] });
+});
+
+test("the loop's steps are switched in the worklet and read back here, with the step playing", () => {
+  const { backend } = setUp();
+  const { port, posted, receive } = fakePort();
+  backend.attach(port);
+
+  const seen: { steps: number[]; playing: number }[] = [];
+  backend.subscribeLoopSteps((steps) => seen.push(steps));
+
+  assert.deepEqual(backend.getLoopSteps(), { steps: [127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 112, 0, 0, 0, 0, 0], playing: -1 });
+
+  const edited = [127, 0, 0, 0, 64, 0, 0, 0, 0, 0, 112, 0, 0, 0, 0, 0];
+  backend.setLoopStep(4, 64);
+  assert.deepEqual(posted.at(-1), { type: 'call', name: 'setLoopStep', args: [4, 64] });
+  assert.deepEqual(seen.at(-1), { steps: edited, playing: -1 });
+
+  receive({ type: 'watch', values: { hitCount: 0, lastNote: 29, lastHitLevel: 0, lastHitVelocity: 0, playingStep: 3 } });
+  assert.deepEqual(seen.at(-1), { steps: edited, playing: 3 });
+
+  // The snare's own steps, then every instrument's from the new pattern
+  backend.setValue('instrument', 1);
+  assert.deepEqual(seen.at(-1)?.steps, [0, 0, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 127, 0, 0, 0]);
+
+  backend.setValue('instrument', 0);
+  backend.setLoop({ pattern: 1, on: false });
+  assert.deepEqual(seen.at(-1)?.steps, [127, 0, 0, 0, 0, 0, 90, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 });
 
 test('values read as the plugin shows them', () => {

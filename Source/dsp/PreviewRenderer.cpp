@@ -19,7 +19,7 @@ const float* PreviewRenderer::render (Voice& voice, const FxChain::Settings& fxS
     fxChain.reset();
 
     voice.render (scratch.data(), scratch.size());
-    fxChain.process (scratch.data(), scratch.size());
+    fxChain.process (scratch.data(), nullptr, scratch.size());
 
     return scratch.data() + latency;
 }

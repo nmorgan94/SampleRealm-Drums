@@ -7,6 +7,7 @@
     <PARAM id="cymbalMetalRing" value="50.0"/>
     <PARAM id="cymbalNoiseLevel" value="-2.0"/>
     <PARAM id="cymbalNoiseLowCut" value="3000.0"/>
+    <PARAM id="cymbalWidth" value="80.0"/>
     <PARAM id="outputGain" value="-3.5"/>
     <ENVELOPES>
       <ENV id="cymbalMetal">

@@ -49,7 +49,7 @@ TEST_CASE_METHOD (ProcessorFixture, "The header lays out the title with its swit
 
     auto* meter = childOf<LevelMeter> (*tailMeter);
     REQUIRE (meter != nullptr);
-    CHECK (meter->getBounds() == juce::Rectangle<int> (160, 2, 14, 40));
+    CHECK (meter->getBounds() == juce::Rectangle<int> (147, 2, 27, 40));
 }
 
 // As LABEL_HEIGHT and NAME_HEIGHT give the Knob in webui/src/controls.tsx

@@ -1,10 +1,10 @@
 import type { Engine } from '@samplerealm/modules/demo/engine.ts';
 import { browserStorage, xmlTags, type PresetStorage } from '@samplerealm/modules/demo/localPresets.ts';
 import { workletBackend, type WorkletBackend } from '@samplerealm/modules/demo/workletBackend.ts';
-import { listenerSet, type DrumsBackend, type EnvelopeNode, type UiInfo } from '../backend.ts';
+import { listenerSet, type DrumsBackend, type EnvelopeNode, type Loop, type LoopSteps, type UiInfo } from '../backend.ts';
 import { sanitise } from '../envelope.ts';
 import { drumText } from '../params.ts';
-import { flattenNodes, readDrumInfo, renderPreview, setEnvelope } from './engine.ts';
+import { flattenNodes, readDrumInfo, readLoopSteps, renderPreview, setEnvelope } from './engine.ts';
 
 // This plugin's, as a site's demos share its storage. Unchanged, so saved presets stay
 export const STORAGE_KEY = 'samplerealm-drums-presets';
@@ -13,7 +13,7 @@ export const STORAGE_KEY = 'samplerealm-drums-presets';
 const TYPE_PARAMETER = 'instrument';
 
 // The exports processor.js reports when one changes
-export const WATCHED = ['hitCount', 'lastNote'];
+export const WATCHED = ['hitCount', 'lastNote', 'lastHitLevel', 'lastHitVelocity', 'playingStep'];
 
 // By the envelope's id, as a preset holds them
 type Envelopes = Record<string, EnvelopeNode[]>;
@@ -65,10 +65,13 @@ export function demoBackend(info: UiInfo, previewEngine: Engine, { factoryPreset
   const drums = readDrumInfo(previewEngine);
   const envelopes = drums.envelopes.map((envelope) => envelope.nodes);
   const envelopeListeners = drums.envelopes.map(() => listenerSet<[EnvelopeNode[]]>());
-  const hitListeners = listenerSet<[number]>();
+  const hitListeners = listenerSet<[number, number, number]>();
   // Each instrument keeps its own last note once it has played
   const lastNotes = new Map<number, number>();
   let hitCount = previewEngine.hitCount();
+  let loop: Loop = { pattern: 0, on: false };
+  let playing = -1;
+  const loopStepListeners = listenerSet<[LoopSteps]>();
 
   previewEngine.prepare(previewEngine.previewSampleRate(), 1);
   if (storage) moveOldEnvelopes(storage);
@@ -99,15 +102,33 @@ export function demoBackend(info: UiInfo, previewEngine: Engine, { factoryPreset
 
   info.params.forEach(({ id }, index) => backend.subscribe(id, (value) => previewEngine.setParam(index, value)));
 
+  // The page's engine holds the steps as the worklet's does; only the worklet's plays them
+  let steps = readLoopSteps(previewEngine);
+  const loopSteps = (): LoopSteps => ({ steps, playing });
+  const notifyLoopSteps = () => loopStepListeners.notify(loopSteps());
+
+  const reloadLoopSteps = () => {
+    steps = readLoopSteps(previewEngine);
+    notifyLoopSteps();
+  };
+
+  backend.subscribe(TYPE_PARAMETER, reloadLoopSteps);
+
   // lastNote changes with the instrument too: only a new hit count is a hit
   backend.onMessage((data) => {
     if (data.type !== 'watch') return;
-    const watched = data.values as { hitCount: number; lastNote: number };
+    const watched = data.values as { hitCount: number; lastNote: number; lastHitLevel: number; lastHitVelocity: number; playingStep?: number };
+
+    if (watched.playingStep !== undefined && watched.playingStep !== playing) {
+      playing = watched.playingStep;
+      notifyLoopSteps();
+    }
+
     if (watched.hitCount === hitCount) return;
 
     hitCount = watched.hitCount;
     lastNotes.set(instrument(), watched.lastNote);
-    hitListeners.notify(watched.lastNote);
+    hitListeners.notify(watched.lastNote, watched.lastHitLevel, watched.lastHitVelocity);
   });
 
   return {
@@ -120,7 +141,22 @@ export function demoBackend(info: UiInfo, previewEngine: Engine, { factoryPreset
       backend.markModified();
     },
     subscribeEnvelope: (index, listener) => envelopeListeners[index]?.add(listener) ?? (() => {}),
-    audition: () => backend.post({ type: 'call', name: 'audition' }),
+    audition: (velocity) => backend.post({ type: 'call', name: 'audition', args: [velocity] }),
+    patterns: drums.patterns,
+    getLoop: () => loop,
+    setLoop: (next) => {
+      loop = next;
+      backend.post({ type: 'call', name: 'setLoop', args: [next.pattern, next.on ? 1 : 0] });
+      previewEngine.setLoop(next.pattern, 0);
+      reloadLoopSteps();
+    },
+    getLoopSteps: loopSteps,
+    setLoopStep: (step, velocity) => {
+      backend.post({ type: 'call', name: 'setLoopStep', args: [step, velocity] });
+      previewEngine.setLoopStep(step, velocity);
+      reloadLoopSteps();
+    },
+    subscribeLoopSteps: loopStepListeners.add,
     onHit: hitListeners.add,
     // Until an instrument has played, the engine's default for it
     lastNote: () => lastNotes.get(instrument()) ?? previewEngine.lastNote(),

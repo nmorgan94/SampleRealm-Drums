@@ -8,14 +8,15 @@ import { LevelMeter } from '@samplerealm/modules/editor/LevelMeter.tsx';
 import { useManual } from '@samplerealm/modules/editor/ManualOverlay.tsx';
 import { usePrompt } from '@samplerealm/modules/editor/PromptOverlay.tsx';
 import manualText from '../../Assets/Manual.md?raw';
-import type { DrumsBackend, Preview } from './backend.ts';
-import { ChoiceBox, ChoiceButtons, Knob, Toggle } from './controls.tsx';
+import type { DrumsBackend, Loop, Preview } from './backend.ts';
+import { ChoiceBox, ChoiceButtons, Knob, Select, TextButton, Toggle } from './controls.tsx';
 import { EnvelopeEditor, type Curve } from './EnvelopeEditor.tsx';
 import { useHits } from './hooks.ts';
 import { layOutRow } from './layout.ts';
 import { minimumWidth, Panel, panelLayout } from './Panel.tsx';
 import { hertzText } from './params.ts';
 import { Text } from './Text.tsx';
+import { StepRow } from './StepRow.tsx';
 import { TriggerPad } from './TriggerPad.tsx';
 
 export const EDITOR_WIDTH = 1080;
@@ -31,7 +32,7 @@ const SMALL_LINE_HEIGHT = 16;
 const SMALL_FONT_HEIGHT = 11;
 
 // Source/ui/TailMeter.h
-const TAIL_METER = { meterWidth: 14, meterHeight: 40, gap: 10, readoutWidth: 150 };
+const TAIL_METER = { meterWidth: 27, meterHeight: 40, gap: 10, readoutWidth: 137 };
 
 // AudioPluginAudioProcessorEditor::headerLayout
 const HEADER_LAYOUT: HeaderLayout = {
@@ -52,7 +53,11 @@ const BOXES = {
   envelopePanel: { left: 16, top: 70, width: 790, height: 396 },
   envelopeEditor: { left: 24, top: 78, width: 774, height: 380 },
   global: { left: 824, top: 70, width: 240, height: 230 },
-  pad: { left: 824, top: 310, width: 240, height: 156 },
+  auditionLabel: { left: 824, top: 310, width: 240, height: 12 },
+  pad: { left: 824, top: 326, width: 240, height: 82 },
+  steps: { left: 824, top: 414, width: 240, height: 20 },
+  loopPattern: { left: 824, top: 440, width: 154, height: 26 },
+  loopButton: { left: 984, top: 440, width: 80, height: 26 },
   panelRow: { left: 16, top: 478, width: 1048, height: 120 },
 } satisfies Record<string, Rect>;
 
@@ -77,13 +82,14 @@ const CURVES: Curve[][] = [
 
 interface PanelSpec {
   title: string;
-  // The parameter, and the label if not its name. A choice parameter is a Toggle, the rest Knobs
+  // The parameter, and the label if not its name
   controls: [id: string, label?: string][];
-  header?: { id: string; width: number };
+  // A choice box, or a Toggle
+  header?: { id: string; width: number; inset?: number; toggle?: boolean };
   columns?: number;
 }
 
-const GLOBAL: PanelSpec = { title: 'Global', columns: 2, controls: [['tune'], ['keyTrack'], ['length'], ['pitchDepth']] };
+const GLOBAL: PanelSpec = { title: 'Global', columns: 2, header: { id: 'keyTrack', width: 76, inset: 19, toggle: true }, controls: [['tune'], ['length'], ['pitchDepth'], ['velocity']] };
 
 // The cymbal has no pitch envelope for these to act on
 const PITCH_IDS = ['keyTrack', 'pitchDepth'];
@@ -91,6 +97,7 @@ const PITCH_IDS = ['keyTrack', 'pitchDepth'];
 const DRIVE: PanelSpec = { title: 'Drive', header: { id: 'driveType', width: 72 }, controls: [['driveAmount', 'Amount'], ['driveMix', 'Mix']] };
 const EQ: PanelSpec = { title: 'EQ', controls: [['eqLowGain'], ['eqMidFreq'], ['eqMidGain'], ['eqHighGain']] };
 const OUTPUT: PanelSpec = { title: 'Output', controls: [['clipAmount'], ['outputGain', 'Gain']] };
+const CYMBAL_OUTPUT: PanelSpec = { title: 'Output', controls: [['clipAmount'], ['cymbalWidth'], ['outputGain', 'Gain']] };
 
 // AudioPluginAudioProcessorEditor::getSoundPanels, by instrument
 const SOUND_PANELS: PanelSpec[][] = [
@@ -108,7 +115,7 @@ const SOUND_PANELS: PanelSpec[][] = [
   [
     { title: 'Metal', controls: [['cymbalMetalLevel', 'Level'], ['cymbalMetalTone', 'Tone'], ['cymbalMetalRing', 'Ring']] },
     { title: 'Noise', controls: [['cymbalNoiseLevel', 'Level'], ['cymbalNoiseLowCut', 'Low Cut'], ['cymbalNoiseHighCut', 'High Cut']] },
-    DRIVE, EQ, OUTPUT,
+    DRIVE, EQ, CYMBAL_OUTPUT,
   ],
 ];
 
@@ -186,16 +193,45 @@ function usePreview(backend: DrumsBackend, note: number, viewSeconds: number) {
 }
 
 function ParamPanel({ backend, spec, box, hasPitch }: { backend: DrumsBackend; spec: PanelSpec; box: Rect; hasPitch: boolean }) {
-  const layout = panelLayout(box, spec.controls.length, { columns: spec.columns, headerWidth: spec.header?.width });
+  const layout = panelLayout(box, spec.controls.length, { columns: spec.columns, headerWidth: spec.header?.width, headerInset: spec.header?.inset });
+  const enabled = (id: string) => hasPitch || !PITCH_IDS.includes(id);
+  const Header = spec.header?.toggle ? Toggle : ChoiceBox;
 
   return (
     <>
       <Panel title={spec.title} box={box} />
-      {spec.header && <ChoiceBox backend={backend} id={spec.header.id} box={layout.header} />}
-      {spec.controls.map(([id, label], i) => {
-        const Control = backend.param(id).kind === 'choice' ? Toggle : Knob;
-        return <Control key={id} backend={backend} id={id} label={label} box={layout.controls[i]!} enabled={hasPitch || !PITCH_IDS.includes(id)} />;
-      })}
+      {spec.header && <Header backend={backend} id={spec.header.id} box={layout.header} enabled={enabled(spec.header.id)} />}
+      {spec.controls.map(([id, label], i) => (
+        <Knob key={id} backend={backend} id={id} label={label} box={layout.controls[i]!} enabled={enabled(id)} />
+      ))}
+    </>
+  );
+}
+
+// Holds the hits, so one redraws the pad and not the editor
+function HitPad({ backend }: { backend: DrumsBackend }) {
+  return <TriggerPad text="Hit" box={BOXES.pad} hits={useHits(backend)} onTrigger={backend.audition} />;
+}
+
+// The audition loop's pattern and switch, under the pad
+function LoopControls({ backend }: { backend: DrumsBackend }) {
+  const [loop, setLoop] = useState(backend.getLoop);
+
+  const change = (next: Loop) => {
+    setLoop(next);
+    backend.setLoop(next);
+  };
+
+  return (
+    <>
+      <Select
+        label="Loop pattern"
+        choices={backend.patterns}
+        current={loop.pattern}
+        onSelect={(pattern) => change({ ...loop, pattern })}
+        box={BOXES.loopPattern}
+      />
+      <TextButton text="Loop" toggled={loop.on} style={BOXES.loopButton} onClick={() => change({ ...loop, on: !loop.on })} />
     </>
   );
 }
@@ -220,7 +256,7 @@ function Readout({ preview, box }: { preview: Preview | null; box: Rect }) {
   );
 }
 
-// TailMeter::resized. The drum is mono, so one bar
+// TailMeter::resized
 function TailMeter({ backend, preview, box }: { backend: DrumsBackend; preview: Preview | null; box: Rect }) {
   const { meterWidth, meterHeight, readoutWidth } = TAIL_METER;
 
@@ -234,7 +270,6 @@ function TailMeter({ backend, preview, box }: { backend: DrumsBackend; preview: 
           y={box.top + centred(box.height, meterHeight)}
           width={meterWidth}
           height={meterHeight}
-          channels={1}
         />
       </div>
     </>
@@ -269,7 +304,6 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
   const { value: instrumentValue } = useParam(backend, 'instrument');
   const instrument = Math.round(instrumentValue);
   const { value: length } = useParam(backend, 'length');
-  const hits = useHits(backend);
   const fontsLoaded = useFontsLoaded();
   const { formatValue, formatGridValue } = useFormats(backend);
   const curves = CURVES[instrument]!;
@@ -285,7 +319,7 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
 
   const panels = SOUND_PANELS[instrument]!;
   const rowBoxes = layOutRow(
-    panels.map((panel) => ({ numControls: panel.controls.length, minimumWidth: minimumWidth(panel.title, panel.header?.width) })),
+    panels.map((panel) => ({ numControls: panel.controls.length, minimumWidth: minimumWidth(panel.title, panel.header?.width, panel.header?.inset) })),
     BOXES.panelRow,
     PANEL_GAP
   );
@@ -294,7 +328,7 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
 
   return (
     <EditorRootContext.Provider value={root}>
-    <div ref={setRoot} className="relative overflow-hidden bg-background" style={{ width: EDITOR_WIDTH, height: EDITOR_HEIGHT }} data-fonts={fontsLoaded}>
+    <div ref={setRoot} className="relative overflow-hidden bg-background select-none" style={{ width: EDITOR_WIDTH, height: EDITOR_HEIGHT }} data-fonts={fontsLoaded}>
       <HeaderBar
         title={(bounds) => <HeaderTitle backend={backend} bounds={bounds} />}
         width={EDITOR_WIDTH}
@@ -320,7 +354,12 @@ export const Editor = memo(function Editor({ backend }: { backend: DrumsBackend 
       />
 
       <ParamPanel backend={backend} spec={GLOBAL} box={BOXES.global} hasPitch={hasPitch} />
-      <TriggerPad text="Hit" box={BOXES.pad} hits={hits} onTrigger={backend.audition} />
+      <Text style={BOXES.auditionLabel} size={11} bold colour="dim">
+        AUDITION
+      </Text>
+      <HitPad backend={backend} />
+      <StepRow backend={backend} box={BOXES.steps} readout={BOXES.auditionLabel} />
+      <LoopControls backend={backend} />
 
       {panels.map((spec, i) => (
         <ParamPanel key={`${instrument}-${spec.title}`} backend={backend} spec={spec} box={rowBoxes[i]!} hasPitch={hasPitch} />

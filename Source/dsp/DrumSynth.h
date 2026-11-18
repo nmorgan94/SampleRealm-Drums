@@ -12,7 +12,8 @@
 
 //==============================================================================
 /**
- * The drum: the current instrument's voices, started by MIDI note-ons, through the FxChain. Mono.
+ * The drum: the current instrument's voices, started by MIDI note-ons, through the FxChain.
+ * Mono, until the cymbal's Width spreads it.
  */
 class DrumSynth
 {
@@ -36,6 +37,7 @@ public:
         bool  keyTrack    = false;
         float lengthScale = 1.0f;
         float pitchDepth  = 1.0f;
+        float velocityAmount = 0.0f;  // 0..1
 
         float subGain       = 1.0f;  // linear
         float subHarmonics  = 0.0f;  // 0..1
@@ -50,8 +52,15 @@ public:
         Click snap;
 
         CymbalVoice::Settings cymbal;
+
         FxChain::Settings fx;
     };
+
+    /** A hit's gain against a full one, for a velocity of 0..1. */
+    static float velocityGain (float amount, float velocity) noexcept;
+
+    /** The settings one hit plays with. The click and snap take the gain twice, so a soft hit is duller too. */
+    static Settings hitSettings (const Settings&, float gain) noexcept;
 
     /** By DrumEnvelopes::Index, with values in each envelope's domain (log2 Hz for pitch). */
     using Envelopes = std::array<srd::EnvelopeData, DrumEnvelopes::count>;
@@ -83,20 +92,26 @@ public:
     /** Values in the envelope's domain (log2 Hz for pitch), as EnvelopeSpec::toDomain gives. */
     void setEnvelope (std::size_t index, const srd::EnvelopeData&) noexcept;
 
-    /** Overwrites output, starting each note-on at its sample. */
-    void process (float* output, int numSamples, const juce::MidiBuffer&) noexcept;
+    /** Overwrites both channels, starting each note-on at its sample. right can be null, for the mono signal alone. */
+    void process (float* left, float* right, int numSamples, const juce::MidiBuffer&) noexcept;
 
     //==============================================================================
     // Safe from any thread
 
-    /** Replays the current instrument's last note at the start of the next process(). */
-    void audition() noexcept                       { auditionPending = true; }
+    /** Replays the current instrument's last note at the start of the next process(), at a velocity above 0. */
+    void audition (float velocity = 1.0f) noexcept { auditionVelocity = velocity; }
 
     /** Where Key Track tunes the instrument's next audition. */
     int getLastNote (Instrument) const noexcept;
 
     /** Increments on every hit, so the UI can flash without listening to MIDI. */
     juce::uint32 getHitCount() const noexcept      { return hitCount.load(); }
+
+    /** The last hit's gain against a full one, 0..1, so the UI can flash as hard as it played. */
+    float getLastHitLevel() const noexcept         { return lastHitLevel.load(); }
+
+    /** The velocity the last hit was played at, 0..1. */
+    float getLastHitVelocity() const noexcept      { return lastHitVelocity.load(); }
 
 private:
     srd::VoicePool<KickVoice, 4> kickVoices;
@@ -108,8 +123,11 @@ private:
     Envelopes envelopes = DrumEnvelopes::defaults();
     Instrument playing = Instrument::kick;
 
-    std::atomic<bool> auditionPending { false };
+    // 0 when no audition is waiting
+    std::atomic<float> auditionVelocity { 0.0f };
     std::atomic<juce::uint32> hitCount { 0 };
+    std::atomic<float> lastHitLevel { 1.0f };
+    std::atomic<float> lastHitVelocity { 1.0f };
 
     // Each instrument keeps its own last note. Until MIDI arrives the Hit pad plays where each
     // default pitch envelope settles, so turning Key Track on doesn't change the sound
@@ -129,7 +147,7 @@ private:
         return self.lastKickNote;
     }
 
-    void startNote (int midiNote) noexcept;
+    void startNote (int midiNote, float velocity) noexcept;
     void fadeOutAll() noexcept;
     void renderVoices (float* output, int startSample, int endSample) noexcept;
 };

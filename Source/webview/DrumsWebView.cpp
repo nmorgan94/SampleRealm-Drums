@@ -1,4 +1,4 @@
-// The page side of these names is webui/src/plugin/juceBackend.ts
+// The page side of these names is webui/src/plugin/pluginBackend.ts
 #include "DrumsWebView.h"
 #include "../PluginEditor.h"
 #include "../dsp/PreviewRenderer.h"
@@ -56,6 +56,16 @@ namespace
                                         processor.getLastNote (Instrument::cymbal) };
     }
 
+    juce::var loopStepsVar (const Patterns::Part& steps)
+    {
+        juce::Array<juce::var> velocities;
+
+        for (const auto velocity : steps)
+            velocities.add (velocity);
+
+        return velocities;
+    }
+
     // What one editor's page has seen, and its preview. Kept by the functions the editor holds
     struct Page
     {
@@ -63,7 +73,9 @@ namespace
             : processor (p),
               lastEnvelopeVersion (p.getEnvelopeModel().getOutsideVersion()),
               lastHitCount (p.getHitCount()),
-              lastSentNotes (lastNotes (p))
+              lastSentNotes (lastNotes (p)),
+              lastSteps (p.getLoopSteps()),
+              lastPlayingStep (p.getPlayingStep())
         {
             previewRenderer.prepare();
         }
@@ -81,9 +93,25 @@ namespace
 
                     complete ({});
                 })
-                .withNativeFunction ("audition", [this] (const Args&, Completion complete)
+                .withNativeFunction ("audition", [this] (const Args& args, Completion complete)
                 {
-                    processor.triggerAudition();
+                    processor.triggerAudition (args[0]);
+                    complete ({});
+                })
+                .withNativeFunction ("setLoop", [this] (const Args& args, Completion complete)
+                {
+                    processor.setLoop (args[0], args[1]);
+                    complete ({});
+                })
+                .withNativeFunction ("setLoopStep", [this] (const Args& args, Completion complete)
+                {
+                    // The page has its own edit already, unless a change it hasn't seen is waiting
+                    const auto seen = processor.getLoopSteps() == lastSteps;
+                    processor.setLoopStep (args[0], args[1]);
+
+                    if (seen)
+                        lastSteps = processor.getLoopSteps();
+
                     complete ({});
                 })
                 // One hit for the waveform, its samples as base64 Float32
@@ -99,7 +127,11 @@ namespace
                 })
                 .withInitialisationData ("drumInfo", juce::String (drumInfoJson()))
                 .withInitialisationData ("envelopes", juce::JSON::toString (envelopesVar (processor.getEnvelopeModel()), true))
-                .withInitialisationData ("lastNotes", juce::JSON::toString (lastSentNotes, true));
+                .withInitialisationData ("lastNotes", juce::JSON::toString (lastSentNotes, true))
+                .withInitialisationData ("loopPattern", processor.getLoopPattern())
+                .withInitialisationData ("looping", processor.isLooping())
+                .withInitialisationData ("loopSteps", juce::JSON::toString (loopStepsVar (lastSteps), true))
+                .withInitialisationData ("playingStep", lastPlayingStep);
         }
 
         void tick (const WebViewEditor::EmitEvent& emit)
@@ -123,7 +155,25 @@ namespace
             if (const auto hits = processor.getHitCount(); hits != lastHitCount)
             {
                 lastHitCount = hits;
-                emit ("hit", processor.getLastNote());
+
+                auto hit = std::make_unique<juce::DynamicObject>();
+                hit->setProperty ("note", processor.getLastNote());
+                hit->setProperty ("level", processor.getLastHitLevel());
+                hit->setProperty ("velocity", processor.getLastHitVelocity());
+                emit ("hit", juce::var (hit.release()));
+            }
+
+            // A new pattern or instrument; the page's own edits aren't sent back
+            if (const auto steps = processor.getLoopSteps(); steps != lastSteps)
+            {
+                lastSteps = steps;
+                emit ("loopSteps", loopStepsVar (steps));
+            }
+
+            if (const auto playing = processor.getPlayingStep(); playing != lastPlayingStep)
+            {
+                lastPlayingStep = playing;
+                emit ("playingStep", playing);
             }
         }
 
@@ -131,6 +181,8 @@ namespace
         PreviewRenderer previewRenderer;
         juce::uint32 lastEnvelopeVersion, lastHitCount;
         juce::var lastSentNotes;
+        Patterns::Part lastSteps;
+        int lastPlayingStep;
     };
 }
 

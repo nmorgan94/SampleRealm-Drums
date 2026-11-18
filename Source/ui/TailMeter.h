@@ -17,7 +17,8 @@ namespace srd
             noteColourId
         };
 
-        static constexpr int meterWidth = 14, gap = 10, readoutWidth = 150;
+        // Room for the meter's two bars
+        static constexpr int meterWidth = 27, gap = 10, readoutWidth = 137;
         static constexpr int preferredWidth = readoutWidth + gap + meterWidth;
 
         explicit TailMeter (PeakMeter& source) : meter (source)

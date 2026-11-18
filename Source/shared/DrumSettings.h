@@ -25,6 +25,7 @@ DrumSynth::Settings makeDrumSettings (ValueOf&& valueOf)
     s.keyTrack    = valueOf (keyTrack) >= 0.5f;
     s.lengthScale = valueOf (length);
     s.pitchDepth  = fraction (pitchDepth);
+    s.velocityAmount = fraction (velocity);
 
     s.subGain       = gain (subLevel);
     s.subHarmonics  = fraction (subHarmonics);
@@ -56,6 +57,7 @@ DrumSynth::Settings makeDrumSettings (ValueOf&& valueOf)
     s.fx.eq.midGainDb  = valueOf (eqMidGain);
     s.fx.eq.highGainDb = valueOf (eqHighGain);
     s.fx.clipAmount    = fraction (clipAmount);
+    s.fx.width         = s.instrument == Instrument::cymbal ? fraction (cymbalWidth) : 0.0f;
     s.fx.outputGain    = gain (outputGain);
     return s;
 }

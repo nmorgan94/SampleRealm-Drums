@@ -30,6 +30,24 @@ namespace
 }
 
 //==============================================================================
+float DrumSynth::velocityGain (float amount, float velocity) noexcept
+{
+    return 1.0f - amount * (1.0f - juce::jlimit (0.0f, 1.0f, velocity));
+}
+
+DrumSynth::Settings DrumSynth::hitSettings (const Settings& s, float gain) noexcept
+{
+    auto hit = s;
+
+    for (auto* layer : { &hit.subGain, &hit.bodyGain, &hit.snareNoiseGain, &hit.cymbal.metalGain, &hit.cymbal.noiseGain })
+        *layer *= gain;
+
+    for (auto* layer : { &hit.click.gain, &hit.snap.gain })
+        *layer *= gain * gain;
+
+    return hit;
+}
+
 KickVoice::Settings DrumSynth::kickSettings (const Settings& s, int midiNote, const srd::EnvelopeData& pitch) noexcept
 {
     KickVoice::Settings kick;
@@ -136,21 +154,26 @@ int DrumSynth::getLastNote (Instrument instrument) const noexcept
 }
 
 //==============================================================================
-void DrumSynth::startNote (int midiNote) noexcept
+void DrumSynth::startNote (int midiNote, float velocity) noexcept
 {
     fadeOutAll();
 
+    const auto gain = velocityGain (settings.velocityAmount, velocity);
+    const auto hit = hitSettings (settings, gain);
+
     switch (playing)
     {
-        case Instrument::kick:   start (kickVoices.getFreeVoice(), settings, envelopes, midiNote);   break;
-        case Instrument::snare:  start (snareVoices.getFreeVoice(), settings, envelopes, midiNote);  break;
-        case Instrument::cymbal: start (cymbalVoices.getFreeVoice(), settings, envelopes, midiNote); break;
+        case Instrument::kick:   start (kickVoices.getFreeVoice(), hit, envelopes, midiNote);   break;
+        case Instrument::snare:  start (snareVoices.getFreeVoice(), hit, envelopes, midiNote);  break;
+        case Instrument::cymbal: start (cymbalVoices.getFreeVoice(), hit, envelopes, midiNote); break;
     }
 
     // The cymbal ignores the note
     if (playing != Instrument::cymbal)
         lastNoteOf (playing) = midiNote;
 
+    lastHitLevel = gain;
+    lastHitVelocity = velocity;
     ++hitCount;
 }
 
@@ -168,12 +191,13 @@ void DrumSynth::renderVoices (float* output, int startSample, int endSample) noe
     cymbalVoices.render (output + startSample, endSample - startSample);
 }
 
-void DrumSynth::process (float* output, int numSamples, const juce::MidiBuffer& midi) noexcept
+void DrumSynth::process (float* left, float* right, int numSamples, const juce::MidiBuffer& midi) noexcept
 {
-    juce::FloatVectorOperations::clear (output, numSamples);
+    // The voices are mono; the FxChain spreads them
+    juce::FloatVectorOperations::clear (left, numSamples);
 
-    if (auditionPending.exchange (false))
-        startNote (lastNoteOf (playing).load());
+    if (const auto velocity = auditionVelocity.exchange (0.0f); velocity > 0.0f)
+        startNote (lastNoteOf (playing).load(), velocity);
 
     // Split the block at each note-on so hits are sample-accurate
     int position = 0;
@@ -186,15 +210,15 @@ void DrumSynth::process (float* output, int numSamples, const juce::MidiBuffer& 
             continue;
 
         const auto eventPosition = juce::jlimit (0, numSamples, metadata.samplePosition);
-        renderVoices (output, position, eventPosition);
+        renderVoices (left, position, eventPosition);
         position = eventPosition;
 
         if (message.isNoteOn())
-            startNote (message.getNoteNumber());
+            startNote (message.getNoteNumber(), message.getFloatVelocity());
         else
             fadeOutAll();
     }
 
-    renderVoices (output, position, numSamples);
-    fxChain.process (output, numSamples);
+    renderVoices (left, position, numSamples);
+    fxChain.process (left, right, numSamples);
 }

@@ -11,6 +11,11 @@ void FxChain::prepare (double sampleRate, int maxBlockSize)
 
     eq.prepare (sampleRate);
     clipper.prepare (sampleRate);
+    spread.prepare (sampleRate);
+
+    for (auto& ceiling : ceilings)
+        ceiling.prepare (sampleRate);
+
     outputGain.reset (sampleRate, 0.02);
 }
 
@@ -20,6 +25,11 @@ void FxChain::reset() noexcept
     dcBlocker.reset();
     eq.reset();
     clipper.reset();
+    spread.reset();
+
+    for (auto& ceiling : ceilings)
+        ceiling.reset();
+
     outputGain.setCurrentAndTargetValue (outputGain.getTargetValue());
 }
 
@@ -28,17 +38,37 @@ void FxChain::setSettings (const Settings& s) noexcept
     drive.setParameters (s.driveType, s.driveAmount, s.driveMix);
     eq.setSettings (s.eq);
     clipper.setAmount (s.clipAmount);
+    spread.setWidth (s.width);
+
+    for (auto& ceiling : ceilings)
+        ceiling.setTargets (1.0f, s.clipAmount > 0.0f ? 1.0f : 0.0f);
+
     outputGain.setTargetValue (s.outputGain);
 }
 
-void FxChain::process (float* samples, int numSamples) noexcept
+void FxChain::process (float* left, float* right, int numSamples) noexcept
 {
-    drive.process (samples, numSamples);
+    drive.process (left, numSamples);
 
     for (int i = 0; i < numSamples; ++i)
-        samples[i] = dcBlocker.processSample (0, samples[i]);
+        left[i] = dcBlocker.processSample (0, left[i]);
 
-    eq.process (samples, numSamples);
-    clipper.process (samples, numSamples);
-    outputGain.applyGain (samples, numSamples);
+    eq.process (left, numSamples);
+    clipper.process (left, numSamples);
+
+    if (right != nullptr)
+    {
+        spread.process (left, right, numSamples);
+
+        // The side signal adds to one channel what it takes from the other
+        if (spread.isSpreading())
+        {
+            ceilings[0].process (left, numSamples, srd::Clipper::clip);
+            ceilings[1].process (right, numSamples, srd::Clipper::clip);
+        }
+    }
+
+    float* channels[] { left, right };
+    juce::AudioBuffer<float> block { channels, right != nullptr ? 2 : 1, numSamples };
+    outputGain.applyGain (block, numSamples);
 }

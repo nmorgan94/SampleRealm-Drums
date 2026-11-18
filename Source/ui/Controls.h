@@ -102,34 +102,24 @@ namespace srd
     };
 
     //==============================================================================
-    /** An on/off button for a two-state parameter, showing the parameter's value text. */
+    /** An on/off button for a two-state parameter, named after it and lit when on. */
     class Toggle : public juce::Component
     {
     public:
-        Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::ParameterID& id, const juce::String& labelText = {})
-            : param (detail::getParameter (apvts, id)),
+        Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::ParameterID& id, const juce::String& text = {})
+            : button (text.isNotEmpty() ? text : detail::getParameter (apvts, id).getName (32)),
               attachment (apvts, id.getParamID(), button)
         {
-            detail::initLabel (label, param, labelText);
-
-            // Reads the toggle state: on a click, this runs before the attachment updates the parameter
             button.setClickingTogglesState (true);
-            button.onStateChange = [this] { button.setButtonText (param.getText (button.getToggleState() ? 1.0f : 0.0f, 32)); };
-            button.onStateChange();
-
-            addAndMakeVisible (label);
             addAndMakeVisible (button);
         }
 
         void resized() override
         {
-            const auto bounds = LabeledSlider::layOutAboveLabel (label, getLocalBounds(), controlLabelHeight);
-            button.setBounds (bounds.withSizeKeepingCentre (std::min (bounds.getWidth(), 64), std::min (bounds.getHeight(), 24)));
+            button.setBounds (getLocalBounds().withSizeKeepingCentre (getWidth(), std::min (getHeight(), 24)));
         }
 
     private:
-        juce::RangedAudioParameter& param;
-        juce::Label label;
         juce::TextButton button;
         juce::AudioProcessorValueTreeState::ButtonAttachment attachment;
 

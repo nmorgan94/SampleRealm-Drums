@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseState } from '@samplerealm/modules/demo/workletBackend.ts';
 import { blockSize, sampleRate } from '@samplerealm/modules/testing/engine.ts';
+import { toggledStep } from '../src/backend.ts';
 import { parseEnvelopes } from '../src/demo/demoBackend.ts';
-import { renderPreview } from '../src/demo/engine.ts';
+import { readLoopSteps, renderPreview } from '../src/demo/engine.ts';
 import { drums, engine, info } from './engine.ts';
 
 const noteOn = 0x90;
@@ -32,14 +33,14 @@ test('the ui info carries the version, the commit, the build type and every para
   assert.match(info.commit, /^([0-9a-f]{7,}(-local)?|unknown)$/);
   assert.match(info.build, /^(Debug|Release)$/);
   assert.deepEqual(info.params.map((p) => p.id), [
-    'instrument', 'outputGain', 'tune', 'keyTrack', 'length', 'pitchDepth',
+    'instrument', 'outputGain', 'tune', 'keyTrack', 'length', 'pitchDepth', 'velocity',
     'subLevel', 'subHarmonics', 'subPhase',
     'clickType', 'clickLevel', 'clickTone', 'clickDecay', 'clickPitch',
     'snareBodyLevel', 'snareBodyHarmonics',
     'snareNoiseLevel', 'snareNoiseLowCut', 'snareNoiseHighCut',
     'snareSnapType', 'snareSnapLevel', 'snareSnapTone', 'snareSnapDecay', 'snareSnapPitch',
     'cymbalMetalLevel', 'cymbalMetalTone', 'cymbalMetalRing',
-    'cymbalNoiseLevel', 'cymbalNoiseLowCut', 'cymbalNoiseHighCut',
+    'cymbalNoiseLevel', 'cymbalNoiseLowCut', 'cymbalNoiseHighCut', 'cymbalWidth',
     'driveType', 'driveAmount', 'driveMix',
     'eqLowGain', 'eqMidFreq', 'eqMidGain', 'eqHighGain',
     'clipAmount',
@@ -69,6 +70,7 @@ test('the drum info carries how each value reads and every envelope', () => {
   ]);
   assert.deepEqual(drums.envelopes[0]!.nodes.at(-1), { time: 0.35, value: 43.65, curve: 0 });
   assert.equal(drums.envelopes[5]!.maxTime, 4);
+  assert.deepEqual(drums.patterns, ['Two-step', 'Halftime', 'Four-floor', 'Sixteenths']);
 });
 
 test('there is silence until a note arrives', () => {
@@ -98,6 +100,146 @@ test('a note-on of velocity 0 is not a hit', () => {
   e.engine.midi(noteOn, 40, 0);
   assert.equal(peak(e.play(0.1)), 0);
   assert.equal(e.engine.hitCount(), 0);
+});
+
+test('velocity sets how hard a hit plays, by the Velocity amount', () => {
+  // Without Drive, which squashes a hard hit more than a soft one
+  const hit = (amount: number, velocity: number) => {
+    const e = engine();
+    e.set('velocity', amount);
+    e.set('driveAmount', 0);
+    e.play(0.1);
+    e.engine.midi(noteOn, 29, velocity);
+    return { peak: peak(e.play(0.05)), level: e.engine.lastHitLevel() };
+  };
+
+  assert.ok(hit(100, 40).peak < 0.4 * hit(100, 127).peak);
+  assert.ok(Math.abs(hit(100, 40).level - 40 / 127) < 1e-6);
+  assert.equal(hit(100, 127).level, 1);
+
+  assert.equal(hit(0, 40).peak, hit(0, 127).peak);
+  assert.equal(hit(0, 40).level, 1);
+});
+
+test('audition plays at the velocity it is given', () => {
+  const e = engine();
+  e.set('velocity', 100);
+  e.engine.midi(noteOn, 29, 20);
+  e.play(0.05);
+  assert.ok(Math.abs(e.engine.lastHitVelocity() - 20 / 127) < 1e-6);
+
+  e.engine.audition(1);
+  e.play(0.05);
+  assert.equal(e.engine.lastHitLevel(), 1);
+  assert.equal(e.engine.lastHitVelocity(), 1);
+
+  e.engine.audition(0.5);
+  e.play(0.05);
+  assert.equal(e.engine.lastHitLevel(), 0.5);
+  assert.equal(e.engine.lastHitVelocity(), 0.5);
+});
+
+test('the same note plays the same hit every time', () => {
+  const difference = (instrument: number) => {
+    const e = engine();
+    e.set('instrument', instrument);
+
+    const hit = () => {
+      e.engine.midi(noteOn, 40, 100);
+      const samples = Array.from(e.play(0.05));
+      e.play(2);
+      return samples;
+    };
+
+    const first = hit();
+    const second = hit();
+    return peak(first.map((sample, i) => sample - second[i]!));
+  };
+
+  for (const instrument of [kick, snare, cymbal]) {
+    assert.ok(difference(instrument) < 1e-6, `instrument ${instrument}: ${difference(instrument)}`);
+  }
+});
+
+test('Width spreads the cymbal over two channels that still sum to the mono hit', () => {
+  const hit = (instrument: number, width: number) => {
+    const e = engine();
+    e.set('instrument', instrument);
+    e.set('cymbalWidth', width);
+    e.play(0.1);
+    e.engine.midi(noteOn, 42, 100);
+    const [left, right] = e.stereo(0.1);
+    return { left: Array.from(left!), right: Array.from(right!) };
+  };
+
+  const mono = hit(cymbal, 0);
+  assert.deepEqual(mono.left, mono.right);
+
+  const wide = hit(cymbal, 100);
+  const apart = peak(wide.left.map((sample, i) => sample - wide.right[i]!));
+  const sumError = peak(wide.left.map((sample, i) => sample + wide.right[i]! - 2 * mono.left[i]!));
+  assert.ok(apart > 0.05, `the channels differ by ${apart}`);
+  assert.ok(sumError < 1e-5, `the sum is off by ${sumError}`);
+
+  const kickHit = hit(kick, 100);
+  assert.deepEqual(kickHit.left, kickHit.right);
+});
+
+test("the loop plays the current instrument's part from its first step, at the tempo", () => {
+  const e = engine();
+  e.engine.setTransport(120, false, 0);
+
+  // A bar is 2 s: the kick's two hits, then nothing once it's off
+  e.engine.setLoop(0, true);
+  e.play(1.9);
+  assert.equal(e.engine.hitCount(), 2);
+
+  e.engine.setLoop(0, false);
+  e.play(2);
+  assert.equal(e.engine.hitCount(), 2);
+
+  // The cymbal plays the hat's eighths
+  e.set('instrument', cymbal);
+  e.engine.setLoop(0, true);
+  e.play(1.9);
+  assert.equal(e.engine.hitCount(), 10);
+});
+
+test("a step can be set for the current instrument, until a new pattern replaces them", () => {
+  const e = engine();
+  const steps = () => readLoopSteps(e.engine);
+  e.engine.setTransport(120, false, 0);
+
+  assert.deepEqual(steps(), [127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 112, 0, 0, 0, 0, 0]);
+  assert.equal(e.engine.playingStep(), -1);
+
+  // A step switched off keeps its velocity as a negative
+  assert.equal(toggledStep(0), 127);
+  assert.equal(toggledStep(-112), 112);
+
+  e.engine.setLoopStep(4, 64);
+  e.engine.setLoopStep(10, toggledStep(112));
+  e.engine.setLoopStep(16, 100);
+  e.engine.setLoopStep(1, 500);
+  assert.deepEqual(steps(), [127, 127, 0, 0, 64, 0, 0, 0, 0, 0, -112, 0, 0, 0, 0, 0]);
+
+  // A bar is 2 s, a step 125 ms. The last of the three hits was at velocity 64, with Vel Sens at 50 %
+  e.engine.setLoop(0, true);
+  e.play(0.6);
+  assert.equal(e.engine.hitCount(), 3);
+  assert.ok(Math.abs(e.engine.lastHitLevel() - (1 - 0.5 * (1 - 64 / 127))) < 1e-5);
+  assert.equal(e.engine.playingStep(), 4);
+
+  e.engine.setLoop(0, false);
+  assert.equal(e.engine.playingStep(), -1);
+  assert.equal(steps()[4], 64);
+
+  e.set('instrument', snare);
+  assert.deepEqual(steps(), [0, 0, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 127, 0, 0, 0]);
+
+  e.set('instrument', kick);
+  e.engine.setLoop(1, false);
+  assert.deepEqual(steps(), [127, 0, 0, 0, 0, 0, 90, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 });
 
 // The voices stop within a few ms; the DC blocker and EQ then ring down
@@ -135,7 +277,7 @@ test('audition replays the last note of the current instrument', () => {
 
   e.engine.midi(noteOn, 33, 100);
   e.play(0.6);
-  e.engine.audition();
+  e.engine.audition(1);
 
   assert.ok(peak(e.play(0.05)) > 0.1);
   assert.equal(e.engine.hitCount(), 2);
@@ -173,9 +315,13 @@ test('the meter reads the loudest sample since it was last read', () => {
   e.engine.midi(noteOn, 29, 100);
   const hit = e.play(0.1);
 
-  assert.ok(Math.abs(e.engine.peak(0) - peak(hit)) < 1e-6);
-  assert.equal(e.engine.peak(0), 0);
-  assert.equal(e.engine.peak(1), 0);
+  // Both channels, which are the same without Width
+  for (const channel of [0, 1]) {
+    assert.ok(Math.abs(e.engine.peak(channel) - peak(hit)) < 1e-6);
+    assert.equal(e.engine.peak(channel), 0);
+  }
+
+  assert.equal(e.engine.peak(2), 0);
 });
 
 test('the preview renders one hit and where its pitch settles', () => {

@@ -21,11 +21,12 @@ namespace srd
         void setFont (juce::Font newFont)   { font = std::move (newFont); repaint(); }
         void setColumns (int numColumns)    { columns = numColumns; resized(); }
 
-        /** Sits at the right of the title. */
-        void setHeaderComponent (juce::Component& component, int width)
+        /** Sits at the right of the title, inset from the panel's right edge. */
+        void setHeaderComponent (juce::Component& component, int width, int inset = 0)
         {
             header = &component;
             headerWidth = width;
+            headerInset = inset;
             addAndMakeVisible (component);
             resized();
         }
@@ -42,7 +43,7 @@ namespace srd
         /** Room for the title and the header component side by side. */
         int getMinimumWidth() const
         {
-            return juce::roundToInt (juce::GlyphArrangement::getStringWidth (font, title.toUpperCase())) + headerWidth + 32;
+            return juce::roundToInt (juce::GlyphArrangement::getStringWidth (font, title.toUpperCase())) + headerWidth + headerInset + 32;
         }
 
         /** Lays panels out left to right, as wide as their number of controls, except that
@@ -103,7 +104,7 @@ namespace srd
         void resized() override
         {
             if (header != nullptr)
-                header->setBounds (getLocalBounds().removeFromTop (headerHeight).reduced (6, 3).removeFromRight (headerWidth));
+                header->setBounds (getLocalBounds().removeFromTop (headerHeight).reduced (6, 3).withTrimmedRight (headerInset).removeFromRight (headerWidth));
 
             if (controls.isEmpty())
                 return;
@@ -130,7 +131,7 @@ namespace srd
         juce::Font font { juce::FontOptions (12.0f, juce::Font::bold) };
         juce::Array<juce::Component*> controls;
         juce::Component* header = nullptr;
-        int headerWidth = 0, columns = 0;
+        int headerWidth = 0, headerInset = 0, columns = 0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Panel)
     };

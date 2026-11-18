@@ -92,7 +92,7 @@ interface TextButtonProps {
 }
 
 // CustomLookAndFeel::drawButtonBackground: brighter on hover and while down, the accent when on
-function TextButton({ text, style, onClick, toggled = false, joined = {}, label }: TextButtonProps) {
+export function TextButton({ text, style, onClick, toggled = false, joined = {}, label }: TextButtonProps) {
   const radius = (square?: boolean) => (square ? 0 : 4);
 
   return (
@@ -145,54 +145,53 @@ export function ChoiceButtons({ backend, id, box }: { backend: DrumsBackend; id:
   );
 }
 
-// An on/off button for a two-state parameter, showing the parameter's value text, its name below
+// An on/off button for a two-state parameter, named after it and lit when on
 export function Toggle({ backend, id, label, box, enabled = true }: ControlProps) {
   const { value, commit, param } = useParam(backend, id);
-  const name = label ?? param.name;
   const on = value >= 0.5;
-  const { control, label: labelBox } = layOutAboveLabel(box.width, box.height, LABEL_HEIGHT);
-  const nameLabel = styleLabel(labelBox, NAME_HEIGHT);
-  const width = Math.min(control.width, 64);
-  const height = Math.min(control.height, 24);
+  const height = Math.min(box.height, 24);
 
   return (
     <div className="absolute" style={placed(box, enabled)}>
       <TextButton
-        text={backend.formatValue(param, on ? 1 : 0)}
-        label={name}
+        text={label ?? param.name}
         toggled={on}
-        style={{ left: control.left + centred(control.width, width), top: control.top + centred(control.height, height), width, height }}
+        style={{ left: 0, top: centred(box.height, height), width: box.width, height }}
         onClick={() => commit(on ? 0 : 1)}
       />
-      <div className={`${nameLabel.className} ${LABEL_CLASS}`} style={nameLabel.style}>
-        {name}
-      </div>
     </div>
   );
 }
 
-// juce::ComboBox listing a choice parameter's values, as LookAndFeel_V4 draws it
-export function ChoiceBox({ backend, id, box }: { backend: DrumsBackend; id: string; box: Rect }) {
-  const { value, commit, param } = useParam(backend, id);
+interface SelectProps {
+  // For screen readers
+  label: string;
+  choices: readonly string[];
+  current: number;
+  onSelect(index: number): void;
+  box: Rect;
+}
+
+// juce::ComboBox, as LookAndFeel_V4 draws it
+export function Select({ label, choices, current, onSelect, box }: SelectProps) {
   const menu = useMenu();
-  const current = Math.round(value);
 
   return (
     <>
       <button
         type="button"
-        aria-label={param.name}
+        aria-label={label}
         aria-haspopup="menu"
         className="absolute flex cursor-pointer items-center rounded-[3px] border border-line bg-widget pl-1.5 text-left text-fg"
         style={{ ...box, fontSize: juceHeight(12) }}
         onClick={(e) =>
           menu.open(
             e.currentTarget,
-            param.choices.map((choice, index) => ({ kind: 'item', label: choice, ticked: index === current, onSelect: () => commit(index) }))
+            choices.map((choice, index) => ({ kind: 'item', label: choice, ticked: index === current, onSelect: () => onSelect(index) }))
           )
         }
       >
-        <span className="grow overflow-hidden text-ellipsis whitespace-nowrap">{param.choices[current]}</span>
+        <span className="grow overflow-hidden text-ellipsis whitespace-nowrap">{choices[current]}</span>
         <svg className="mr-1.5 shrink-0" width={8} height={6} viewBox="0 0 8 6" aria-hidden>
           <path d="M 0 1 L 4 5 L 8 1" stroke="var(--color-dim)" strokeWidth={1.5} fill="none" />
         </svg>
@@ -200,4 +199,11 @@ export function ChoiceBox({ backend, id, box }: { backend: DrumsBackend; id: str
       {menu.element}
     </>
   );
+}
+
+// A Select listing a choice parameter's values
+export function ChoiceBox({ backend, id, box }: { backend: DrumsBackend; id: string; box: Rect }) {
+  const { value, commit, param } = useParam(backend, id);
+
+  return <Select label={param.name} choices={param.choices} current={Math.round(value)} onSelect={commit} box={box} />;
 }

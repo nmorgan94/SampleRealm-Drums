@@ -21,6 +21,7 @@ namespace Parameters
     inline const juce::ParameterID keyTrackId    { Specs::keyTrack.id,   versionHint };
     inline const juce::ParameterID lengthId      { Specs::length.id,     versionHint };
     inline const juce::ParameterID pitchDepthId  { Specs::pitchDepth.id, versionHint };
+    inline const juce::ParameterID velocityId    { Specs::velocity.id,   versionHint };
 
     // Sub
     inline const juce::ParameterID subLevelId     { Specs::subLevel.id,     versionHint };
@@ -59,6 +60,7 @@ namespace Parameters
     inline const juce::ParameterID cymbalNoiseLevelId   { Specs::cymbalNoiseLevel.id,   versionHint };
     inline const juce::ParameterID cymbalNoiseLowCutId  { Specs::cymbalNoiseLowCut.id,  versionHint };
     inline const juce::ParameterID cymbalNoiseHighCutId { Specs::cymbalNoiseHighCut.id, versionHint };
+    inline const juce::ParameterID cymbalWidthId        { Specs::cymbalWidth.id,        versionHint };
 
     // Drive
     inline const juce::ParameterID driveTypeId   { Specs::driveType.id,   versionHint };

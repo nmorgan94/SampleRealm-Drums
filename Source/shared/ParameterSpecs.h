@@ -78,6 +78,7 @@ namespace ParameterSpecs
     inline constexpr DrumSpec keyTrack   = choiceOf ("keyTrack", "Key Track", offOn);
     inline constexpr DrumSpec length     = real ("length", "Length", 0.25f, 4.0f, 1.0f, 0.01f, "x", 2, 1.0f);
     inline constexpr DrumSpec pitchDepth = percent ("pitchDepth", "Pitch Depth", 200.0f, 100.0f);
+    inline constexpr DrumSpec velocity   = percent ("velocity", "Vel Sens", 100.0f, 50.0f);
 
     // Sub
     inline constexpr DrumSpec subLevel     = level ("subLevel", "Sub Level", minusInfinityDb, 6.0f, 0.0f);
@@ -117,6 +118,9 @@ namespace ParameterSpecs
     inline constexpr DrumSpec cymbalNoiseLowCut  = hertz ("cymbalNoiseLowCut", "Cymbal Noise Low Cut", 200.0f, 12000.0f, 3000.0f, 6000.0f);
     inline constexpr DrumSpec cymbalNoiseHighCut = hertz ("cymbalNoiseHighCut", "Cymbal Noise High Cut", 1000.0f, 18000.0f, 6000.0f, 16000.0f);
 
+    // Cymbal stereo spread; 0 is mono
+    inline constexpr DrumSpec cymbalWidth = percent ("cymbalWidth", "Width", 100.0f, 0.0f);
+
     // Drive
     inline constexpr DrumSpec driveType   = choiceOf ("driveType", "Drive Type", driveTypeNames);
     inline constexpr DrumSpec driveAmount = percent ("driveAmount", "Drive", 100.0f, 20.0f);
@@ -133,14 +137,14 @@ namespace ParameterSpecs
 
     // The host's parameter order
     inline constexpr std::array drumSpecs {
-        &instrument, &outputGain, &tune, &keyTrack, &length, &pitchDepth,
+        &instrument, &outputGain, &tune, &keyTrack, &length, &pitchDepth, &velocity,
         &subLevel, &subHarmonics, &subPhase,
         &clickType, &clickLevel, &clickTone, &clickDecay, &clickPitch,
         &snareBodyLevel, &snareBodyHarmonics,
         &snareNoiseLevel, &snareNoiseLowCut, &snareNoiseHighCut,
         &snareSnapType, &snareSnapLevel, &snareSnapTone, &snareSnapDecay, &snareSnapPitch,
         &cymbalMetalLevel, &cymbalMetalTone, &cymbalMetalRing,
-        &cymbalNoiseLevel, &cymbalNoiseLowCut, &cymbalNoiseHighCut,
+        &cymbalNoiseLevel, &cymbalNoiseLowCut, &cymbalNoiseHighCut, &cymbalWidth,
         &driveType, &driveAmount, &driveMix,
         &eqLowGain, &eqMidFreq, &eqMidGain, &eqHighGain,
         &clipAmount

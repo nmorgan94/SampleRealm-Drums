@@ -3,7 +3,9 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <samplerealm/PeakMeter.h>
 #include "Parameters.h"
+#include "dsp/AuditionLoop.h"
 #include "dsp/DrumSynth.h"
+#include "dsp/LoopClock.h"
 #include "envelopes/EnvelopeModel.h"
 #include <editor/editor.h>
 
@@ -59,8 +61,8 @@ public:
     /** The envelopes as the engine uses them. Message thread. */
     DrumSynth::Envelopes getDrumEnvelopes() const;
 
-    /** Replays the last note played on the next audio block. */
-    void triggerAudition() noexcept                     { synth.audition(); }
+    /** Replays the last note played on the next audio block, at a velocity above 0. */
+    void triggerAudition (float velocity = 1.0f) noexcept   { synth.audition (velocity); }
 
     /** The current instrument's last note, so the UI can show where its tail lands with Key Track on. */
     int getLastNote() const noexcept;
@@ -68,6 +70,25 @@ public:
 
     /** Increments on every hit, so the UI can flash without listening to MIDI. */
     juce::uint32 getHitCount() const noexcept           { return synth.getHitCount(); }
+
+    /** The last hit's gain against a full one, 0..1. */
+    float getLastHitLevel() const noexcept              { return synth.getLastHitLevel(); }
+
+    /** The velocity the last hit was played at, 0..1. */
+    float getLastHitVelocity() const noexcept           { return synth.getLastHitVelocity(); }
+
+    /** The audition loop: the current instrument's steps, in time with the host. A new pattern in
+        Patterns::all replaces every instrument's steps. Not a parameter and not saved. */
+    void setLoop (int pattern, bool on) noexcept        { loop.set (pattern, on); }
+    int getLoopPattern() const noexcept                 { return loop.getPattern(); }
+    bool isLooping() const noexcept                     { return loop.isOn(); }
+
+    /** The current instrument's steps: a velocity each, as srd::LoopSteps::setStep takes. */
+    Patterns::Part getLoopSteps() const noexcept        { return loop.getSteps (getInstrument()); }
+    void setLoopStep (int step, int velocity) noexcept  { loop.setStep (getInstrument(), step, velocity); }
+
+    /** The step the loop is on, or -1 while it's off. */
+    int getPlayingStep() const noexcept                 { return loop.getPlayingStep(); }
 
 private:
     // In ParameterSpecs::all's order
@@ -85,8 +106,17 @@ private:
 
     DrumSynth synth;
 
-    // Every channel carries the same mono signal
-    PeakMeter outputMeter { 1 };
+    srd::AuditionLoop loop;
+    srd::LoopClock loopClock;
+
+    // The host's MIDI with the loop's hits added, while it's on
+    juce::MidiBuffer midiWithLoop;
+
+    Parameters::Instrument getInstrument() const noexcept;
+    const juce::MidiBuffer& withLoopHits (const juce::MidiBuffer& midi, int numSamples) noexcept;
+
+    // As many channels as the output, set in prepareToPlay
+    PeakMeter outputMeter { 2 };
 
     srd::EnvelopeModel::Snapshot envelopes;
     juce::uint32 envelopeVersion = 0;

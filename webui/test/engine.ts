@@ -4,11 +4,11 @@ import { localEnginePath } from '../localEngine.ts';
 import { paramLookup, type EnvelopeNode } from '../src/backend.ts';
 import { readDrumInfo, setEnvelope } from '../src/demo/engine.ts';
 
-const monoEngine = engineAt(localEnginePath());
+const stereoEngine = engineAt(localEnginePath());
 
-// Makes a fresh engine from the last wasm build, prepared for its one channel, or unprepared for null
+// Makes a fresh engine from the last wasm build, prepared for its two channels, or unprepared for null
 export function engine(rate?: number | null) {
-  const made = monoEngine(1, rate);
+  const made = stereoEngine(2, rate);
 
   const envelope = (id: string, nodes: readonly EnvelopeNode[]) => {
     const index = drums.envelopes.findIndex((spec) => spec.id === id);
@@ -16,11 +16,14 @@ export function engine(rate?: number | null) {
     setEnvelope(made.engine, index, nodes);
   };
 
+  // The left channel, which is the whole drum until the cymbal's Width spreads it
   const block = (length = blockSize) => made.renderBlocks(length)[0]!;
 
-  const play = (seconds: number) => made.renderBlocks(Math.round((seconds * sampleRate) / blockSize) * blockSize)[0]!;
+  const stereo = (seconds: number) => made.renderBlocks(Math.round((seconds * sampleRate) / blockSize) * blockSize);
 
-  return { ...made, envelope, block, play };
+  const play = (seconds: number) => stereo(seconds)[0]!;
+
+  return { ...made, envelope, block, play, stereo };
 }
 
 const first = engine();

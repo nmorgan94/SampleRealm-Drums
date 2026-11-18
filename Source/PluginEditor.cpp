@@ -89,7 +89,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
         addAndMakeVisible (panel);
     };
 
-    addPanel (globalPanel, { &tune, &keyTrack, &length, &pitchDepth });
+    addPanel (globalPanel, { &tune, &length, &pitchDepth, &velocity });
     addPanel (subPanel,    { &subLevel, &subHarmonics, &subPhase });
     addPanel (clickPanel,  { &clickLevel, &clickTone, &clickDecay, &clickPitch });
     addPanel (bodyPanel,   { &bodyLevel, &bodyHarmonics });
@@ -100,8 +100,11 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     addPanel (drivePanel,  { &driveAmount, &driveMix });
     addPanel (eqPanel,     { &eqLow, &eqMidFreq, &eqMid, &eqHigh });
     addPanel (outputPanel, { &clip, &output });
+    addPanel (cymbalOutputPanel, { &cymbalClip, &cymbalWidth, &cymbalOutput });
 
     globalPanel.setColumns (2);
+    // Centred over the right column of knobs
+    globalPanel.setHeaderComponent (keyTrack, 76, 19);
     clickPanel.setHeaderComponent (clickType, 84);
     snapPanel.setHeaderComponent (snapType, 84);
     drivePanel.setHeaderComponent (driveType, 72);
@@ -110,8 +113,40 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     showInstrument();
 
     triggerPad.setFont (customLookAndFeel.font (18.0f, true));
-    triggerPad.onTrigger = [this] { processorRef.triggerAudition(); };
+    triggerPad.onTrigger = [this] (float hitVelocity) { processorRef.triggerAudition (hitVelocity); };
     addAndMakeVisible (triggerPad);
+
+    for (int id = 1; const auto* name : Patterns::names)
+        loopPattern.addItem (name, id++);
+
+    loopPattern.setTitle ("Loop pattern");
+    loopPattern.setSelectedItemIndex (processorRef.getLoopPattern(), juce::dontSendNotification);
+    loopButton.setClickingTogglesState (true);
+    loopButton.setToggleState (processorRef.isLooping(), juce::dontSendNotification);
+
+    const auto setLoop = [this] { processorRef.setLoop (loopPattern.getSelectedItemIndex(), loopButton.getToggleState()); };
+    loopPattern.onChange = setLoop;
+    loopButton.onClick = setLoop;
+    addAndMakeVisible (loopPattern);
+    addAndMakeVisible (loopButton);
+
+    auditionLabel.setFont (customLookAndFeel.font (11.0f, true));
+    auditionLabel.setBorderSize ({});
+    addAndMakeVisible (auditionLabel);
+
+    stepReadout.setFont (customLookAndFeel.font (11.0f, true));
+    stepReadout.setBorderSize ({});
+    stepReadout.setJustificationType (juce::Justification::centredRight);
+    stepReadout.setInterceptsMouseClicks (false, false);
+    addAndMakeVisible (stepReadout);
+
+    stepRow.setSteps (processorRef.getLoopSteps());
+    stepRow.onChange = [this] (int step, int stepVelocity) { processorRef.setLoopStep (step, stepVelocity); };
+    stepRow.onDrag = [this] (int stepVelocity)
+    {
+        stepReadout.setText (stepVelocity > 0 ? juce::String (stepVelocity) : juce::String(), juce::dontSendNotification);
+    };
+    addAndMakeVisible (stepRow);
 
     overlayLookAndFeel.setColour (juce::Label::textColourId, CustomLookAndFeel::Palette::text);
     prompt.setLookAndFeel (&overlayLookAndFeel);
@@ -178,7 +213,7 @@ juce::Array<srd::Panel*> AudioPluginAudioProcessorEditor::getSoundPanels (Parame
     switch (instrument)
     {
         case Parameters::Instrument::snare:  return { &bodyPanel, &snareNoisePanel, &snapPanel, &drivePanel, &eqPanel, &outputPanel };
-        case Parameters::Instrument::cymbal: return { &metalPanel, &cymbalNoisePanel, &drivePanel, &eqPanel, &outputPanel };
+        case Parameters::Instrument::cymbal: return { &metalPanel, &cymbalNoisePanel, &drivePanel, &eqPanel, &cymbalOutputPanel };
         case Parameters::Instrument::kick:   break;
     }
 
@@ -227,8 +262,11 @@ void AudioPluginAudioProcessorEditor::timerCallback()
     if (const auto hits = processorRef.getHitCount(); hits != lastHitCount)
     {
         lastHitCount = hits;
-        triggerPad.flash();
+        triggerPad.flash (processorRef.getLastHitLevel(), processorRef.getLastHitVelocity());
     }
+
+    stepRow.setSteps (processorRef.getLoopSteps());
+    stepRow.setPlayingStep (processorRef.getPlayingStep());
 
     updatePreview();
 }
@@ -258,10 +296,24 @@ void AudioPluginAudioProcessorEditor::resized()
     srd::Panel::layOutRow (getSoundPanels (getInstrument()), bounds.removeFromBottom (120), gap);
     bounds.removeFromBottom (12);
 
-    // Global controls and the trigger pad on the right
+    // Global controls on the right, with the trigger pad below them
     auto right = bounds.removeFromRight (240);
     globalPanel.setBounds (right.removeFromTop (230));
     right.removeFromTop (gap);
+
+    // The audition: its name, the pad, the loop's steps, then the loop's controls side by side
+    constexpr int labelHeight = 12, labelGap = 4, loopHeight = 26, loopGap = 6, loopButtonWidth = 80;
+    auditionLabel.setBounds (right.removeFromTop (labelHeight));
+    stepReadout.setBounds (auditionLabel.getBounds());
+    right.removeFromTop (labelGap);
+
+    auto loopRow = right.removeFromBottom (loopHeight);
+    loopButton.setBounds (loopRow.removeFromRight (loopButtonWidth));
+    loopRow.removeFromRight (loopGap);
+    loopPattern.setBounds (loopRow);
+    right.removeFromBottom (loopGap);
+    stepRow.setBounds (right.removeFromBottom (srd::StepRow::stepHeight));
+    right.removeFromBottom (loopGap);
     triggerPad.setBounds (right);
 
     // Envelope editor fills the rest, inside its panel

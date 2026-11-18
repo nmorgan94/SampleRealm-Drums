@@ -4,9 +4,11 @@
 #include <samplerealm/UiInfoJson.h>
 #include "DrumEnvelopes.h"
 #include "ParameterSpecs.h"
+#include "Patterns.h"
 
 //==============================================================================
-/** What the web editor needs beside the shared ui info: how each value reads, in the host's order, and the envelopes.
+/** What the web editor needs beside the shared ui info: how each value reads, in the host's order, the envelopes
+    and the loop's patterns.
     As DrumInfo in webui/src/backend.ts. */
 inline std::string drumInfoJson()
 {
@@ -54,6 +56,11 @@ inline std::string drumInfoJson()
         json += ",\"min\":" + number (spec.minValue) + ",\"max\":" + number (spec.maxValue);
         json += ",\"maxTime\":" + number (spec.maxTime) + ",\"nodes\":[" + nodes + "]}";
     }
+
+    json += "],\"patterns\":[";
+
+    for (size_t i = 0; i < Patterns::names.size(); ++i)
+        json += (i == 0 ? "" : ",") + quoted (Patterns::names[i]);
 
     return json + "]}";
 }

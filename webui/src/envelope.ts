@@ -5,7 +5,7 @@ import type { EnvelopeInfo, EnvelopeNode } from './backend.ts';
 export const MIN_GAP = 0.0005;
 export const MAX_NODES = 32;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 //==============================================================================
 // The value axis is linear in the domain: log2 Hz for a logarithmic envelope

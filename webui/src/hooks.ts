@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { DrumsBackend } from './backend.ts';
 
-// Changes on every hit, from the pad, MIDI or the keyboard
+// count changes on every hit, from the pad, MIDI or the keyboard; level and velocity are that hit's
 export function useHits(backend: DrumsBackend) {
-  const [hits, setHits] = useState(0);
+  const [hits, setHits] = useState({ count: 0, level: 1, velocity: 1 });
 
-  useEffect(() => backend.onHit(() => setHits((count) => count + 1)), [backend]);
+  useEffect(
+    () => backend.onHit((_, level, velocity) => setHits(({ count }) => ({ count: count + 1, level, velocity }))),
+    [backend],
+  );
 
   return hits;
 }

@@ -7,10 +7,10 @@ const HEADER_HEIGHT = 26;
 const TITLE_FONT = 12;
 
 // Room for the title and the header component side by side
-export const minimumWidth = (title: string, headerWidth = 0) => Math.round(textWidth(title.toUpperCase(), TITLE_FONT, true)) + headerWidth + 32;
+export const minimumWidth = (title: string, headerWidth = 0, headerInset = 0) => Math.round(textWidth(title.toUpperCase(), TITLE_FONT, true)) + headerWidth + headerInset + 32;
 
 // Panel::resized: the header component at the title's right, the controls in a grid below
-export function panelLayout(box: Rect, numControls: number, { columns = 0, headerWidth = 0 } = {}) {
+export function panelLayout(box: Rect, numControls: number, { columns = 0, headerWidth = 0, headerInset = 0 } = {}) {
   const numColumns = columns > 0 ? columns : numControls;
   const numRows = Math.ceil(numControls / Math.max(1, numColumns));
   const area = { left: box.left + 6, top: box.top + HEADER_HEIGHT, width: box.width - 12, height: box.height - HEADER_HEIGHT - 6 };
@@ -18,7 +18,7 @@ export function panelLayout(box: Rect, numControls: number, { columns = 0, heade
   const cellHeight = Math.trunc(area.height / Math.max(1, numRows));
 
   return {
-    header: { left: box.left + box.width - 6 - headerWidth, top: box.top + 3, width: headerWidth, height: HEADER_HEIGHT - 6 },
+    header: { left: box.left + box.width - 6 - headerInset - headerWidth, top: box.top + 3, width: headerWidth, height: HEADER_HEIGHT - 6 },
     controls: Array.from({ length: numControls }, (_, i): Rect => ({
       left: area.left + (i % numColumns) * cellWidth,
       top: area.top + Math.trunc(i / numColumns) * cellHeight,

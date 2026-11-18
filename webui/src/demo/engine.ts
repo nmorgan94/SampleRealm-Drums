@@ -1,6 +1,6 @@
 // What Drums' engine exports beside the shared ones: wasm/Engine.cpp
 import { readJson, type Engine } from '@samplerealm/modules/demo/engine.ts';
-import type { DrumInfo, EnvelopeNode, Preview } from '../backend.ts';
+import { STEPS_PER_BAR, type DrumInfo, type EnvelopeNode, type Preview } from '../backend.ts';
 import { MAX_NODES } from '../envelope.ts';
 
 export const readDrumInfo = (engine: Engine) => readJson<DrumInfo>(engine, engine.drumInfo());
@@ -14,6 +14,10 @@ export const setEnvelope = (engine: Engine, index: number, nodes: readonly Envel
   new Float32Array(engine.memory.buffer, engine.envelopeNodes(), flat.length).set(flat);
   engine.setEnvelope(index, flat.length / 3);
 };
+
+// The current instrument's steps
+export const readLoopSteps = (engine: Engine): number[] =>
+  Array.from({ length: STEPS_PER_BAR }, (_, step) => engine.loopStepVelocity(step));
 
 export const renderPreview = (engine: Engine, note: number, maxSeconds: number): Preview => {
   const pointer = engine.preview(note, maxSeconds);

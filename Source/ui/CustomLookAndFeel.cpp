@@ -2,6 +2,7 @@
 #include "EnvelopeEditor.h"
 #include "HeaderTitle.h"
 #include "Panel.h"
+#include "StepRow.h"
 #include "TailMeter.h"
 #include "TriggerPad.h"
 #include <BinaryData.h>
@@ -41,6 +42,11 @@ CustomLookAndFeel::CustomLookAndFeel()
         { srd::TriggerPad::backgroundColourId,           P::raised },
         { srd::TriggerPad::flashColourId,                P::accent },
         { srd::TriggerPad::textColourId,                 P::text },
+
+        { srd::StepRow::offColourId,                     P::raised },
+        { srd::StepRow::onColourId,                      P::accent },
+        { srd::StepRow::playingColourId,                 P::text },
+
         { LevelMeter::backgroundColourId,                P::panel },
         { LevelMeter::outlineColourId,                   P::outline },
         { LevelMeter::barColourId,                       P::accentAlt },

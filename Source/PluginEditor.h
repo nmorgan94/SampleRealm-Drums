@@ -7,6 +7,7 @@
 #include "ui/EnvelopeEditor.h"
 #include "ui/HeaderTitle.h"
 #include "ui/Panel.h"
+#include "ui/StepRow.h"
 #include "ui/TailMeter.h"
 #include "ui/TriggerPad.h"
 #include "ui/Waveform.h"
@@ -66,8 +67,17 @@ private:
     srd::Toggle keyTrack { apvts, Parameters::keyTrackId };
     srd::Knob length     { apvts, Parameters::lengthId };
     srd::Knob pitchDepth { apvts, Parameters::pitchDepthId };
+    srd::Knob velocity   { apvts, Parameters::velocityId };
     srd::TriggerPad triggerPad { "Hit" };
     juce::uint32 lastHitCount = 0;
+
+    // The audition loop, which isn't a parameter
+    juce::Label auditionLabel { {}, "AUDITION" };
+    // The velocity of the step being dragged
+    juce::Label stepReadout;
+    srd::StepRow stepRow;
+    juce::ComboBox loopPattern;
+    juce::TextButton loopButton { "Loop" };
 
     // Kick
     srd::Panel subPanel { "Sub" };
@@ -125,6 +135,12 @@ private:
     srd::Panel outputPanel { "Output" };
     srd::Knob clip   { apvts, Parameters::clipAmountId };
     srd::Knob output { apvts, Parameters::outputGainId, "Gain" };
+
+    // The cymbal's Output has Width too
+    srd::Panel cymbalOutputPanel { "Output" };
+    srd::Knob cymbalClip   { apvts, Parameters::clipAmountId };
+    srd::Knob cymbalWidth  { apvts, Parameters::cymbalWidthId };
+    srd::Knob cymbalOutput { apvts, Parameters::outputGainId, "Gain" };
 
     Parameters::Instrument getInstrument() const;
     void showInstrument();
