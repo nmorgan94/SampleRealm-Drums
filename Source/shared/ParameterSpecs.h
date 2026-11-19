@@ -154,7 +154,9 @@ namespace ParameterSpecs
     inline constexpr auto all = []
     {
         std::array<const Spec*, drumSpecs.size()> specs {};
-        std::ranges::copy (drumSpecs, specs.begin());
+        // Not std::ranges::copy: MSVC 14.51 then crashes in the static_assert
+        for (std::size_t i = 0; i < specs.size(); ++i)
+            specs[i] = drumSpecs[i];
         return specs;
     }();
 
