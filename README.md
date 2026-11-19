@@ -177,7 +177,7 @@ Catch2 tests in `Tests/` drive the processor directly: bus layouts, state save a
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds the Release plugin on macOS and Windows and runs the unit tests. It only runs when started by hand: **Actions → CI → Run workflow**, or `gh workflow run ci.yml`. Tick **Also run pluginval** (or pass `-f pluginval=true`) to validate the plugin too.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds the Release plugin on macOS and Windows and runs the unit tests and pluginval. It runs on every push to `main`, or by hand: **Actions → CI → Run workflow**, or `gh workflow run ci.yml`.
 
 Each run lists the plugins under **Artifacts** for 30 days: `Drums-macOS.tar.gz` (VST3 and AU) and `Drums-Windows.tar.gz` (VST3). They are unsigned.
 
@@ -192,7 +192,7 @@ Needs Emscripten (`brew install emscripten`) and Node 24+.
 | Typecheck and test the UI on their own | `cd webui && npm run typecheck && npm test` |
 | Build the plugin with the WebView editor | `cmake --workflow --preset webview` |
 
-- The demo builds to `wasm/build-wasm/SampleRealm-Drums-<version>/`, named from `COMPANY_NAME`, `project()` and `VERSION` in `CMakeLists.txt`. Upload that folder; the site embeds its `index.html` in an iframe. [`wasm.yml`](.github/workflows/wasm.yml) builds the same folder on GitHub as an artifact of that name, run by hand.
+- The demo builds to `wasm/build-wasm/SampleRealm-Drums-<version>/`, named from `COMPANY_NAME`, `project()` and `VERSION` in `CMakeLists.txt`. Upload that folder; the site embeds its `index.html` in an iframe. [`wasm.yml`](.github/workflows/wasm.yml) builds the same folder on GitHub as an artifact of that name, on every push to `main` or by hand.
 - The demo plays from the on-screen keyboard, the computer keyboard (A to ' from C1) or a MIDI keyboard, and the Hit pad. Its user presets stay in the browser.
 - The `webview` build installs over the native one; run the `release` workflow to switch back.
 - The wasm build patches JUCE (`cmake/patches/juce-wasm.patch` in SampleRealm-Modules) until JUCE fixes its wasm support.
