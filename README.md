@@ -195,6 +195,11 @@ Needs Emscripten (`brew install emscripten`) and Node 24+.
 - The demo builds to `wasm/build-wasm/SampleRealm-Drums-<version>/`, named from `COMPANY_NAME`, `project()` and `VERSION` in `CMakeLists.txt`. Upload that folder; the site embeds its `index.html` in an iframe. [`wasm.yml`](.github/workflows/wasm.yml) builds the same folder on GitHub as an artifact of that name, on every push to `main` or by hand.
 - The demo plays from the on-screen keyboard, the computer keyboard (A to ' from C1) or a MIDI keyboard, and the Hit pad. Its user presets stay in the browser.
 - The `webview` build installs over the native one; run the `release` workflow to switch back.
+- **Windows**: the `webview` build needs Microsoft's WebView2 package, installed once per machine from Windows PowerShell:
+  ```powershell
+  Register-PackageSource -provider NuGet -name nugetRepository -location https://www.nuget.org/api/v2
+  Install-Package Microsoft.Web.WebView2 -Scope CurrentUser -RequiredVersion 1.0.3485.44 -Source nugetRepository
+  ```
 - The wasm build patches JUCE (`cmake/patches/juce-wasm.patch` in SampleRealm-Modules) until JUCE fixes its wasm support.
 
 ## Plugin Locations
